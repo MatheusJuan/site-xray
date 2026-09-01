@@ -93,9 +93,15 @@
       <button class="subtab-btn" data-subtab="seo-imagens">Imagens</button>
       <button class="subtab-btn" data-subtab="seo-links">Links</button>
       <button class="subtab-btn" data-subtab="seo-social">Social</button>
+      <button class="subtab-btn" data-subtab="seo-head">Tags &lt;head&gt;</button>
+      <button class="subtab-btn" data-subtab="seo-jsonld">Dados Estruturados</button>
     </div>
 
     <div id="seo-resumo" class="subtab-panel">
+      <div class="favicon-row">
+        <img id="seo-favicon-img" class="favicon-preview" alt="favicon">
+        <button id="seo-favicon-download-btn" class="open-all-btn" disabled>⬇️ Baixar favicon</button>
+      </div>
       <ul id="seo-summary-list" class="kv-list"></ul>
     </div>
 
@@ -118,6 +124,20 @@
 
     <div id="seo-social" class="subtab-panel hidden">
       <ul id="seo-social-list" class="kv-list"></ul>
+    </div>
+
+    <div id="seo-head" class="subtab-panel hidden">
+      <div class="hint">Ordem recomendada: charset e viewport primeiro, title antes de CSS/scripts.</div>
+      <div class="head-table-wrap">
+        <table class="head-table">
+          <thead><tr><th>Tag</th><th>Conteúdo</th><th>Prioridade</th><th>Aviso</th></tr></thead>
+          <tbody id="seo-head-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="seo-jsonld" class="subtab-panel hidden">
+      <div id="seo-jsonld-list"></div>
     </div>
   </div>
 

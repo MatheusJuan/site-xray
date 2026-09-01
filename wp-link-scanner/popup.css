@@ -308,6 +308,106 @@ body {
   font-style: italic;
 }
 
+.favicon-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.favicon-preview {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  visibility: hidden;
+}
+
+.open-all-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.head-table-wrap {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+
+.head-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.head-table th {
+  text-align: left;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.head-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.head-table tr:last-child td {
+  border-bottom: none;
+}
+
+.head-tag-badge {
+  color: var(--cyan);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.head-warning {
+  color: var(--warn);
+  font-size: 9.5px;
+}
+
+.jsonld-block {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.jsonld-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.jsonld-tree {
+  font-size: 10.5px;
+}
+
+.jsonld-line {
+  padding: 2px 0;
+}
+
+.jsonld-type {
+  color: var(--cyan);
+}
+
+.jsonld-name {
+  color: var(--text);
+}
+
 .section-title {
   font-size: 10px;
   text-transform: uppercase;

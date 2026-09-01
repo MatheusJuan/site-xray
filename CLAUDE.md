@@ -33,7 +33,7 @@ wp-link-scanner/
 tamanhos separados (não tinha ferramenta de resize disponível; se algum dia
 o ícone ficar borrado na barra de 16px, gerar versões dedicadas resolve).
 
-Versão atual do manifest: **1.9.2**.
+Versão atual do manifest: **1.10.0**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -162,11 +162,15 @@ Reaproveita a resposta já buscada em `fetchHomepage` (sem fetch extra):
 ### Aba SEO
 
 Uma única chamada a `chrome.scripting.executeScript` (`extractSeoData`,
-`world: "MAIN"`) lê o DOM já renderizado e alimenta as 5 sub-abas:
+`world: "MAIN"`) lê o DOM já renderizado e alimenta as 7 sub-abas:
 
-- **Resumo**: title (+ contagem de caracteres), description (+ contagem),
-  keywords, URL, canonical, robots meta, author, publisher, lang, contagem
-  de H1-H6, total de imagens e links
+- **Resumo**: favicon (detectado via `<link rel="icon">`/`shortcut
+  icon`/`apple-touch-icon`, fallback `/favicon.ico`) com preview e botão
+  "Baixar favicon" (busca como blob e dispara `<a download>`, funciona
+  cross-origin porque roda no popup com `host_permissions`), title (+
+  contagem de caracteres), description (+ contagem), keywords, URL,
+  canonical, robots meta, author, publisher, lang, contagem de H1-H6, total
+  de imagens e links
 - **Headers**: árvore de H1 a H6 na ordem em que aparecem na página,
   indentado por nível
 - **Imagens**: total, quantas sem ALT, quantas sem title; lista separada em
@@ -183,6 +187,16 @@ Uma única chamada a `chrome.scripting.executeScript` (`extractSeoData`,
   teto ficam sem badge de status. Entra no relatório copiável quando acha
   algum quebrado
 - **Social**: tags Open Graph (`og:*`) e Twitter Card (`twitter:*`)
+- **Tags `<head>`**: tabela com todo elemento filho de `<head>` na ordem em
+  que aparece (meta, link, script, title, style), com prioridade recomendada
+  (charset/viewport = 100, title = 95, script = 70, stylesheet = 40, preload
+  = 30, resto = 50) e aviso quando a ordem real diverge do recomendado
+  (charset que não é a 1ª tag, viewport ou title que aparecem depois de
+  CSS/script)
+- **Dados Estruturados**: percorre todo `<script type="application/ld+json">`
+  da página, mostra `@type` + `name`/`headline` de cada nó recursivamente
+  (cobre estruturas aninhadas tipo `FAQPage` com `mainEntity` de
+  `Question`/`Answer`), com botão "Copiar JSON" por bloco
 
 ### Aba Element Info
 

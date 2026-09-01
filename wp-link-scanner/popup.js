@@ -120,6 +120,10 @@ const seoImagesIssuesList = document.getElementById("seo-images-issues-list");
 const seoImagesOkList = document.getElementById("seo-images-ok-list");
 const seoLinksList = document.getElementById("seo-links-list");
 const seoSocialList = document.getElementById("seo-social-list");
+const seoFaviconImg = document.getElementById("seo-favicon-img");
+const seoFaviconDownloadBtn = document.getElementById("seo-favicon-download-btn");
+const seoHeadTbody = document.getElementById("seo-head-tbody");
+const seoJsonldList = document.getElementById("seo-jsonld-list");
 
 let lastSitemapResults = [];
 let lastSubdomains = [];
@@ -434,6 +438,59 @@ function extractSeoData() {
     social.push({ key: el.getAttribute("name"), value: el.getAttribute("content") });
   });
 
+  const headElements = Array.from(document.head.children).map((el) => {
+    const tag = el.tagName.toLowerCase();
+    const rel = (el.getAttribute("rel") || "").toLowerCase();
+    const isCharset = tag === "meta" && el.hasAttribute("charset");
+    const name = el.getAttribute("name") || el.getAttribute("property") || el.getAttribute("http-equiv") || "";
+    const isViewport = tag === "meta" && name.toLowerCase() === "viewport";
+
+    let content = "";
+    if (tag === "meta") {
+      content = isCharset ? "charset" : name;
+    } else if (tag === "link") {
+      content = rel + (el.getAttribute("href") ? " " + el.getAttribute("href") : "");
+    } else if (tag === "script") {
+      const flags = [];
+      if (el.hasAttribute("async")) flags.push("async");
+      if (el.hasAttribute("defer")) flags.push("defer");
+      content = (flags.length ? flags.join("/") + " " : "") + (el.getAttribute("src") || "inline");
+    } else if (tag === "title") {
+      content = el.textContent.trim().slice(0, 80);
+    } else if (tag === "style") {
+      content = "inline style";
+    } else {
+      content = el.outerHTML.slice(0, 80);
+    }
+
+    return { tag, rel, isCharset, isViewport, content };
+  });
+
+  const jsonLd = [];
+  document.querySelectorAll('script[type="application/ld+json"]').forEach((el) => {
+    try {
+      jsonLd.push(JSON.parse(el.textContent));
+    } catch {
+      // JSON inválido no bloco, ignora
+    }
+  });
+
+  let favicon = null;
+  for (const iconRel of ["icon", "shortcut icon", "apple-touch-icon"]) {
+    const el = document.querySelector(`link[rel="${iconRel}" i]`);
+    if (el && el.getAttribute("href")) {
+      try {
+        favicon = new URL(el.getAttribute("href"), location.href).href;
+        break;
+      } catch {
+        // href inválido, tenta o próximo rel
+      }
+    }
+  }
+  if (!favicon) {
+    favicon = new URL("/favicon.ico", location.origin).href;
+  }
+
   return {
     title: document.title || "",
     description: getMeta("description"),
@@ -447,7 +504,10 @@ function extractSeoData() {
     headings,
     images,
     links: Array.from(linkMap.values()),
-    social
+    social,
+    headElements,
+    jsonLd,
+    favicon
   };
 }
 
@@ -1110,6 +1170,148 @@ function renderSeoSocial(social) {
   social.forEach((item) => addKvRow(seoSocialList, item.key, item.value));
 }
 
+function renderFavicon(faviconUrl) {
+  seoFaviconDownloadBtn.disabled = true;
+  seoFaviconImg.style.visibility = "hidden";
+  if (!faviconUrl) return;
+
+  seoFaviconImg.onload = () => {
+    seoFaviconImg.style.visibility = "visible";
+    seoFaviconDownloadBtn.disabled = false;
+  };
+  seoFaviconImg.onerror = () => {
+    seoFaviconImg.style.visibility = "hidden";
+    seoFaviconDownloadBtn.disabled = true;
+  };
+  seoFaviconImg.src = faviconUrl;
+}
+
+function renderSeoHeadTable(elements) {
+  seoHeadTbody.innerHTML = "";
+  if (!elements || elements.length === 0) return;
+
+  let sawStylesheetOrScript = false;
+
+  elements.forEach((el, i) => {
+    const tr = document.createElement("tr");
+
+    const tagTd = document.createElement("td");
+    tagTd.className = "head-tag-badge";
+    tagTd.textContent = el.tag.toUpperCase();
+
+    const contentTd = document.createElement("td");
+    contentTd.textContent = el.content;
+
+    const priority = el.isCharset || el.isViewport ? 100 : el.tag === "title" ? 95 : el.rel === "preload" ? 30 : el.rel === "stylesheet" ? 40 : el.tag === "script" ? 70 : 50;
+    const priorityTd = document.createElement("td");
+    priorityTd.textContent = String(priority);
+
+    const warnTd = document.createElement("td");
+    warnTd.className = "head-warning";
+    const warnings = [];
+    if (el.isCharset && i !== 0) warnings.push("essa tag deveria ser a 1ª do <head>");
+    if (el.isViewport && sawStylesheetOrScript) warnings.push("essa tag deveria estar acima");
+    if (el.tag === "title" && sawStylesheetOrScript) warnings.push("essa tag deveria estar acima");
+    warnTd.textContent = warnings.join("; ");
+
+    if (el.rel === "stylesheet" || el.tag === "script") sawStylesheetOrScript = true;
+
+    tr.appendChild(tagTd);
+    tr.appendChild(contentTd);
+    tr.appendChild(priorityTd);
+    tr.appendChild(warnTd);
+    seoHeadTbody.appendChild(tr);
+  });
+}
+
+// Anda pela árvore de um objeto JSON-LD mostrando @type + name (ou headline)
+// de cada nó, recursivamente, tipo o mainEntity de uma FAQPage.
+function renderJsonLdNode(obj, container, depth) {
+  if (Array.isArray(obj)) {
+    obj.forEach((item) => renderJsonLdNode(item, container, depth));
+    return;
+  }
+  if (!obj || typeof obj !== "object") return;
+
+  const type = obj["@type"];
+  const label = obj.name || obj.headline || null;
+  let nextDepth = depth;
+
+  if (type) {
+    const line = document.createElement("div");
+    line.className = "jsonld-line";
+    line.style.paddingLeft = depth * 14 + "px";
+
+    const typeTag = document.createElement("span");
+    typeTag.className = "jsonld-type";
+    typeTag.textContent = "@type: " + type;
+    line.appendChild(typeTag);
+
+    if (label) {
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "jsonld-name";
+      nameSpan.textContent = " " + label;
+      line.appendChild(nameSpan);
+    }
+
+    container.appendChild(line);
+    nextDepth = depth + 1;
+  }
+
+  Object.keys(obj).forEach((key) => {
+    if (key === "@type" || key === "@context" || key === "name" || key === "headline") return;
+    const val = obj[key];
+    if (Array.isArray(val) || (val && typeof val === "object")) {
+      renderJsonLdNode(val, container, nextDepth);
+    }
+  });
+}
+
+function renderSeoJsonLd(schemas) {
+  seoJsonldList.innerHTML = "";
+
+  if (!schemas || schemas.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "Nenhum dado estruturado (JSON-LD) encontrado.";
+    seoJsonldList.appendChild(empty);
+    return;
+  }
+
+  schemas.forEach((schema, i) => {
+    const block = document.createElement("div");
+    block.className = "jsonld-block";
+
+    const header = document.createElement("div");
+    header.className = "jsonld-block-header";
+
+    const title = document.createElement("span");
+    title.textContent = "Schema " + (i + 1) + (schema["@type"] ? " (" + schema["@type"] + ")" : "");
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "open-all-btn";
+    copyBtn.textContent = "Copiar JSON";
+    const json = JSON.stringify(schema, null, 2);
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(json).then(() => {
+        copyBtn.textContent = "Copiado!";
+        setTimeout(() => { copyBtn.textContent = "Copiar JSON"; }, 1200);
+      });
+    });
+
+    header.appendChild(title);
+    header.appendChild(copyBtn);
+    block.appendChild(header);
+
+    const tree = document.createElement("div");
+    tree.className = "jsonld-tree";
+    renderJsonLdNode(schema, tree, 0);
+    block.appendChild(tree);
+
+    seoJsonldList.appendChild(block);
+  });
+}
+
 function renderSeo(data) {
   lastSeoData = data;
   renderSeoSummary(data);
@@ -1117,6 +1319,9 @@ function renderSeo(data) {
   renderSeoImages(data ? data.images : []);
   renderSeoLinks(data ? data.links : []);
   renderSeoSocial(data ? data.social : []);
+  renderFavicon(data ? data.favicon : null);
+  renderSeoHeadTable(data ? data.headElements : []);
+  renderSeoJsonLd(data ? data.jsonLd : []);
 }
 
 // Busca o sitemap por três fontes independentes, na ordem de confiabilidade:
@@ -1362,6 +1567,8 @@ function buildReport() {
     lines.push(`- Title: ${lastSeoData.title || "ausente"} (${(lastSeoData.title || "").length} caracteres)`);
     lines.push(`- Description: ${lastSeoData.description ? lastSeoData.description.length + " caracteres" : "ausente"}`);
     lines.push(`- Canonical: ${lastSeoData.canonical || "ausente"}`);
+    lines.push(`- Favicon: ${lastSeoData.favicon || "não encontrado"}`);
+    lines.push(`- Dados estruturados (JSON-LD): ${lastSeoData.jsonLd.length} bloco(s)`);
     lines.push(`- H1 na página: ${lastSeoData.headings.filter((h) => h.level === 1).length}`);
     lines.push(`- Imagens sem ALT: ${withoutAlt} de ${lastSeoData.images.length}`);
     lines.push(`- Links na página: ${lastSeoData.links.length}`);
@@ -1511,6 +1718,30 @@ openAllSubdomainsBtn.addEventListener("click", () => {
 });
 
 startInspectorBtn.addEventListener("click", startInspector);
+
+seoFaviconDownloadBtn.addEventListener("click", async () => {
+  if (!lastSeoData || !lastSeoData.favicon) return;
+  const original = seoFaviconDownloadBtn.textContent;
+  try {
+    const res = await fetchWithTimeout(lastSeoData.favicon);
+    if (!res.ok) throw new Error("resposta não ok");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const extMatch = lastSeoData.favicon.split("?")[0].match(/\.([a-zA-Z0-9]{2,4})$/);
+    const ext = extMatch ? extMatch[1] : "ico";
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "favicon." + ext;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch {
+    seoFaviconDownloadBtn.textContent = "Erro ao baixar";
+    setTimeout(() => { seoFaviconDownloadBtn.textContent = original; }, 1500);
+  }
+});
 
 devRepoLinkEl.href = REPO_URL;
 devRepoLinkEl.addEventListener("click", (e) => {
