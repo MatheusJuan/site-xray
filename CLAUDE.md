@@ -33,7 +33,7 @@ wp-link-scanner/
 tamanhos separados (não tinha ferramenta de resize disponível; se algum dia
 o ícone ficar borrado na barra de 16px, gerar versões dedicadas resolve).
 
-Versão atual do manifest: **1.9.0**.
+Versão atual do manifest: **1.9.1**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -111,8 +111,11 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
    - Lista limitada a `SUBDOMAIN_DISPLAY_CAP` (60) na tela e no "Abrir
      todos", pra não abrir centena de abas em domínio grande; relatório
      copiável lista todos os encontrados, sem cap
-   - Falha graciosamente pra lista vazia se o crt.sh estiver fora do ar ou
-     devagar (mesmo timeout de 6s do resto da extensão)
+   - crt.sh é conhecido por cair com frequência (infra deles é limitada,
+     502/timeout são comuns). `discoverSubdomains` distingue os dois casos:
+     retorna `null` quando a consulta falhou (mostra aviso de "serviço
+     instável") e `[]` só quando funcionou mas não achou nada (mostra
+     "nenhum subdomínio encontrado") — evita confundir as duas situações
 
 3. **Rastreadores e pixels na página** — usa
    `chrome.scripting.executeScript` com `world: "MAIN"` na aba ativa (lê a

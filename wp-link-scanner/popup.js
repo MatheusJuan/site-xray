@@ -1165,12 +1165,15 @@ function subdomainUrl(name) {
 // crt.sh é um serviço público de logs de certificado transparency, sem
 // autenticação e sem custo. Cobre bem "quais subdomínios esse domínio tem",
 // alternativa gratuita a serviços pagos tipo Censys.
+// Retorna null quando a consulta falhou (crt.sh indisponível, timeout, JSON
+// inválido) e [] quando a consulta funcionou mas não achou nada, pra a UI
+// não confundir "serviço fora do ar" com "domínio sem subdomínio".
 async function discoverSubdomains(hostname) {
   try {
     const res = await fetchWithTimeout("https://crt.sh/?q=" + encodeURIComponent("%." + hostname) + "&output=json");
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const data = await res.json().catch(() => null);
-    if (!Array.isArray(data)) return [];
+    if (!Array.isArray(data)) return null;
 
     const names = new Set();
     data.forEach((entry) => {
@@ -1184,7 +1187,7 @@ async function discoverSubdomains(hostname) {
 
     return [...names].sort();
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -1192,8 +1195,16 @@ function renderSubdomains(names) {
   subdomainsList.innerHTML = "";
   lastSubdomains = names || [];
 
+  if (names === null) {
+    subdomainsContainer.classList.add("hidden");
+    subdomainsEmpty.textContent = "Não foi possível consultar o crt.sh agora (serviço instável ou fora do ar). Tenta escanear de novo em alguns minutos.";
+    subdomainsEmpty.classList.remove("hidden");
+    return;
+  }
+
   if (lastSubdomains.length === 0) {
     subdomainsContainer.classList.add("hidden");
+    subdomainsEmpty.textContent = "Nenhum subdomínio encontrado via crt.sh.";
     subdomainsEmpty.classList.remove("hidden");
     return;
   }
