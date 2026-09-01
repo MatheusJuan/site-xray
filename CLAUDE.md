@@ -1,4 +1,4 @@
-# WP Link Scanner
+# SiteXray
 
 Extensão de navegador (Chrome, Manifest V3) que analisa o site aberto na aba
 ativa e mostra, em um popup, informações públicas úteis para diagnóstico:
@@ -24,7 +24,11 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.4.0**.
+Versão atual do manifest: **1.4.1**.
+
+Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
+pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
+relação com o nome exibido ao usuário.
 
 **Sempre que uma alteração for feita no código, subir o `version` no
 `manifest.json` (semver simples: patch para ajustes pequenos, minor para

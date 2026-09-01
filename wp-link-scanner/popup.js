@@ -397,7 +397,7 @@ function renderLinks(results) {
 
 function buildReport() {
   const lines = [];
-  lines.push(`Relatório de análise - ${lastOrigin}`);
+  lines.push(`Relatório SiteXray - ${lastOrigin}`);
   lines.push(`Data: ${new Date().toLocaleDateString("pt-BR")}`);
   lines.push("");
   lines.push(lastIsWordPress ? "WordPress: detectado" : "WordPress: não detectado");
