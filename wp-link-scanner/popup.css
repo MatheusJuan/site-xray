@@ -298,3 +298,13 @@ body {
   background: var(--accent);
   color: #061109;
 }
+
+.copy-btn {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.copy-btn:hover {
+  background: var(--cyan);
+  color: #04222b;
+}

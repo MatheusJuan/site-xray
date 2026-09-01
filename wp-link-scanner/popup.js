@@ -52,10 +52,15 @@ const sitemapContainer = document.getElementById("sitemap-container");
 const sitemapList = document.getElementById("sitemap-list");
 const sitemapEmpty = document.getElementById("sitemap-empty");
 const openAllSitemapBtn = document.getElementById("open-all-sitemap-btn");
+const copyReportBtn = document.getElementById("copy-report-btn");
 
 let lastSitemapResults = [];
 
 let lastFoundResults = [];
+
+let lastTrackers = [];
+let lastIsWordPress = false;
+let lastOrigin = "";
 
 function openInBackground(url) {
   // active: false mantém o foco no popup, então ele não fecha ao clicar.
@@ -257,6 +262,7 @@ async function detectTrackers() {
 
 function renderTrackers(names) {
   trackersList.innerHTML = "";
+  lastTrackers = names || [];
   if (!names || names.length === 0) {
     trackersContainer.classList.add("hidden");
     return;
@@ -389,6 +395,39 @@ function renderLinks(results) {
   emptyState.classList.add("hidden");
 }
 
+function buildReport() {
+  const lines = [];
+  lines.push(`Relatório de análise - ${lastOrigin}`);
+  lines.push(`Data: ${new Date().toLocaleDateString("pt-BR")}`);
+  lines.push("");
+  lines.push(lastIsWordPress ? "WordPress: detectado" : "WordPress: não detectado");
+
+  if (lastIsWordPress && lastFoundResults.length > 0) {
+    lines.push("");
+    lines.push("Links sensíveis encontrados:");
+    lastFoundResults.forEach((r) => {
+      lines.push(`- [${SEVERITY_LABEL[r.severity]}] ${r.label} (${r.status})${r.risk ? " - " + r.risk : ""}`);
+    });
+  }
+
+  lines.push("");
+  lines.push(
+    lastTrackers.length > 0
+      ? `Rastreadores/pixels: ${lastTrackers.join(", ")}`
+      : "Rastreadores/pixels: nenhum encontrado"
+  );
+
+  lines.push("");
+  if (lastSitemapResults.length > 0) {
+    lines.push("Sitemaps encontrados:");
+    lastSitemapResults.forEach((r) => lines.push(`- ${r.url}`));
+  } else {
+    lines.push("Sitemap: nenhum encontrado");
+  }
+
+  return lines.join("\n");
+}
+
 async function runScan() {
   statusEl.className = "status status-checking";
   statusEl.textContent = "Verificando o site...";
@@ -398,6 +437,7 @@ async function runScan() {
   trackersContainer.classList.add("hidden");
   emptyState.classList.add("hidden");
   rescanBtn.classList.add("hidden");
+  copyReportBtn.classList.add("hidden");
 
   const origin = await getActiveTabOrigin();
   if (!origin) {
@@ -407,6 +447,7 @@ async function runScan() {
     return;
   }
 
+  lastOrigin = origin;
   originEl.textContent = origin;
 
   // O link de WHOIS não depende de ser WordPress, então já deixa disponível.
@@ -425,11 +466,13 @@ async function runScan() {
   discoverSitemaps(origin, homepageHtml).then(renderSitemapList);
 
   const isWordPress = await detectWordPress(origin, homepageHtml);
+  lastIsWordPress = isWordPress;
 
   if (!isWordPress) {
     statusEl.className = "status status-not-found";
     statusEl.textContent = "Este site não parece ser WordPress.";
     rescanBtn.classList.remove("hidden");
+    copyReportBtn.classList.remove("hidden");
     return;
   }
 
@@ -442,6 +485,7 @@ async function runScan() {
   statusEl.textContent = "WordPress detectado.";
   renderLinks(results);
   rescanBtn.classList.remove("hidden");
+  copyReportBtn.classList.remove("hidden");
 }
 
 rescanBtn.addEventListener("click", runScan);
@@ -467,6 +511,19 @@ openAllBtn.addEventListener("click", () => {
 
 openAllSitemapBtn.addEventListener("click", () => {
   lastSitemapResults.forEach((r) => openInBackground(r.url));
+});
+
+copyReportBtn.addEventListener("click", async () => {
+  const original = copyReportBtn.textContent;
+  try {
+    await navigator.clipboard.writeText(buildReport());
+    copyReportBtn.textContent = "✅ Copiado!";
+  } catch {
+    copyReportBtn.textContent = "Erro ao copiar";
+  }
+  setTimeout(() => {
+    copyReportBtn.textContent = original;
+  }, 1500);
 });
 
 document.addEventListener("DOMContentLoaded", runScan);

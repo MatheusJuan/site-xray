@@ -24,7 +24,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.3.0**.
+Versão atual do manifest: **1.4.0**.
 
 **Sempre que uma alteração for feita no código, subir o `version` no
 `manifest.json` (semver simples: patch para ajustes pequenos, minor para
@@ -79,6 +79,13 @@ si** — nenhuma depende da detecção de WordPress ter dado certo, exceto a
        risco em texto
    - Botão "Abrir todos"
 
+5. **Copiar relatório** (sempre disponível junto com "Escanear novamente")
+   - Botão "📋 Copiar relatório" monta um texto em português com origem,
+     data, status de WordPress, links sensíveis achados (com severidade e
+     risco), rastreadores/pixels detectados e sitemaps encontrados
+   - Usa `navigator.clipboard.writeText`, pronto pra colar em orçamento ou
+     proposta de cliente
+
 ## Decisões de arquitetura importantes
 
 - **Sitemap e trackers foram deliberadamente desacoplados da detecção de
@@ -124,7 +131,6 @@ Tema dark "hacker terminal", definido via CSS custom properties no topo do
 
 Ordenadas por impacto x esforço, conversadas mas não construídas ainda:
 
-- Botão "copiar relatório" (resumo em texto pronto pra colar em orçamento/proposta)
 - Detecção de plugins e tema ativo do WordPress (via caminhos de CSS/JS
   carregados na home, ex: `wp-content/plugins/nome-do-plugin/`)
 - Headers de segurança da resposta (`X-Frame-Options`, `Content-Security-Policy`,
