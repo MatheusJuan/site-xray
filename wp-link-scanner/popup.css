@@ -51,17 +51,67 @@ body {
   padding-bottom: 8px;
 }
 
-.header h1 {
-  font-size: 14px;
-  margin: 0;
-  color: var(--accent);
-  letter-spacing: 0.03em;
-  text-shadow: 0 0 8px rgba(57, 255, 158, 0.35);
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.header h1::before {
-  content: "> ";
+.logo-img {
+  height: 22px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(57, 255, 158, 0.25));
+}
+
+.dev-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 4px;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.dev-btn:hover,
+.dev-btn.active {
+  border-color: var(--cyan);
   color: var(--cyan);
+}
+
+.dev-btn.update-available {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.dev-panel {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dev-row {
+  color: var(--text-dim);
+}
+
+.dev-panel a {
+  color: var(--cyan);
+  text-decoration: none;
+}
+
+.dev-panel a:hover {
+  text-decoration: underline;
 }
 
 .origin {

@@ -22,10 +22,18 @@ wp-link-scanner/
 ├── manifest.json   # MV3, permissions: activeTab, scripting; host_permissions: http/https all_urls
 ├── popup.html      # estrutura do popup
 ├── popup.css       # tema visual (dark "hacker", ver seção Design abaixo)
-└── popup.js        # toda a lógica
+├── popup.js        # toda a lógica
+└── icons/
+    ├── icon.png    # ícone da extensão (toolbar, chrome://extensions), 519x519 RGBA
+    └── logo.png    # logomarca "SITExRAY" usada no header do popup, 1359x205 RGBA
 ```
 
-Versão atual do manifest: **1.7.2**.
+`manifest.json` usa o mesmo `icons/icon.png` pras 4 chaves de tamanho
+(16/32/48/128) e pro `action.default_icon` — só um arquivo fonte, sem gerar
+tamanhos separados (não tinha ferramenta de resize disponível; se algum dia
+o ícone ficar borrado na barra de 16px, gerar versões dedicadas resolve).
+
+Versão atual do manifest: **1.8.0**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -50,6 +58,24 @@ domínio, botão "Escanear novamente" e botão "Copiar relatório".
 Todo o conteúdo dentro das abas é **independente entre si** — nenhuma seção
 depende da detecção de WordPress ter dado certo, exceto os links sensíveis
 de WordPress dentro de Visão Geral.
+
+### Header e botão Dev
+
+O header mostra a logomarca (`icons/logo.png`) no lugar do texto "SiteXray"
+que existia antes, com um botão "Dev" alinhado à direita na mesma linha.
+Clicar no botão abre/fecha um painel (`#dev-panel`) com:
+
+- Versão instalada (`chrome.runtime.getManifest().version`)
+- Checagem de atualização: busca `manifest.json` direto do
+  `raw.githubusercontent.com/MatheusJuan/site-xray/master/...` (com
+  cache-buster `?_=timestamp`, sem usar a API do GitHub pra não esbarrar em
+  rate limit) e compara semver com `compareVersions()`. Se a versão remota
+  for maior, mostra "🔴 Atualização disponível" e pinta o botão Dev de
+  amarelo (`.update-available`); senão, "✅ Você está na versão mais
+  recente"
+- Link "📦 Ver repositório no GitHub" (`{REPO_URL}`, abre em aba de fundo
+  como todo link do popup)
+- Roda uma vez, direto no `DOMContentLoaded`, independente do `runScan()`
 
 ### Sempre visível (fora das abas)
 

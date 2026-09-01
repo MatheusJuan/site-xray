@@ -7,8 +7,16 @@
 </head>
 <body>
   <div class="header">
-    <h1>SiteXray</h1>
+    <div class="header-top">
+      <img src="icons/logo.png" alt="SiteXray" class="logo-img">
+      <button id="dev-btn" class="dev-btn">Dev</button>
+    </div>
     <span id="site-origin" class="origin"></span>
+    <div id="dev-panel" class="dev-panel hidden">
+      <div class="dev-row">Versão instalada: <span id="dev-version"></span></div>
+      <div class="dev-row" id="dev-update-status">Verificando atualização...</div>
+      <a id="dev-repo-link" href="#" target="_blank" rel="noopener noreferrer">📦 Ver repositório no GitHub</a>
+    </div>
   </div>
 
   <div id="status" class="status status-checking">

@@ -36,6 +36,9 @@ const SEVERITY_LABEL = { critical: "🔴 Crítico", warning: "🟡 Atenção", i
 const FETCH_TIMEOUT_MS = 6000;
 const LINK_STATUS_CAP = 40;
 
+const REPO_URL = "https://github.com/MatheusJuan/site-xray";
+const REPO_MANIFEST_URL = "https://raw.githubusercontent.com/MatheusJuan/site-xray/master/wp-link-scanner/manifest.json";
+
 // Sinais de tecnologia funcionam pra qualquer site, WordPress ou não.
 // WordPress em si não entra aqui: já tem detecção própria (com fallback via /wp-json/).
 const TECH_SIGNATURES = [
@@ -95,6 +98,11 @@ const sitemapEmpty = document.getElementById("sitemap-empty");
 const openAllSitemapBtn = document.getElementById("open-all-sitemap-btn");
 const copyReportBtn = document.getElementById("copy-report-btn");
 const startInspectorBtn = document.getElementById("start-inspector-btn");
+const devBtn = document.getElementById("dev-btn");
+const devPanel = document.getElementById("dev-panel");
+const devVersionEl = document.getElementById("dev-version");
+const devUpdateStatusEl = document.getElementById("dev-update-status");
+const devRepoLinkEl = document.getElementById("dev-repo-link");
 const techContainer = document.getElementById("tech-container");
 const techList = document.getElementById("tech-list");
 const securityContainer = document.getElementById("security-container");
@@ -301,6 +309,37 @@ async function checkAbsoluteUrl(url, label) {
     return { label, url, status: res.status, ok: res.ok, severity: "info", risk: "Recurso padrão de SEO." };
   } catch {
     return { label, url, status: null, ok: false, severity: "info", risk: "Recurso padrão de SEO." };
+  }
+}
+
+function compareVersions(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+// Compara a versão instalada com o manifest.json direto do repo no GitHub.
+// Sem API do GitHub (rate limit), só o arquivo raw, com cache-buster.
+async function checkForUpdate() {
+  const installedVersion = chrome.runtime.getManifest().version;
+  devVersionEl.textContent = installedVersion;
+
+  try {
+    const res = await fetchWithTimeout(REPO_MANIFEST_URL + "?_=" + Date.now());
+    if (!res.ok) throw new Error("resposta não ok");
+    const remoteManifest = await res.json();
+    if (compareVersions(remoteManifest.version, installedVersion) > 0) {
+      devUpdateStatusEl.textContent = "🔴 Atualização disponível: v" + remoteManifest.version;
+      devBtn.classList.add("update-available");
+    } else {
+      devUpdateStatusEl.textContent = "✅ Você está na versão mais recente.";
+    }
+  } catch {
+    devUpdateStatusEl.textContent = "Não foi possível checar atualização.";
   }
 }
 
@@ -1346,6 +1385,17 @@ openAllSitemapBtn.addEventListener("click", () => {
 
 startInspectorBtn.addEventListener("click", startInspector);
 
+devRepoLinkEl.href = REPO_URL;
+devRepoLinkEl.addEventListener("click", (e) => {
+  e.preventDefault();
+  openInBackground(REPO_URL);
+});
+
+devBtn.addEventListener("click", () => {
+  devBtn.classList.toggle("active");
+  devPanel.classList.toggle("hidden");
+});
+
 copyReportBtn.addEventListener("click", async () => {
   const original = copyReportBtn.textContent;
   try {
@@ -1377,4 +1427,7 @@ document.querySelectorAll(".subtab-btn").forEach((btn) => {
   });
 });
 
-document.addEventListener("DOMContentLoaded", runScan);
+document.addEventListener("DOMContentLoaded", () => {
+  runScan();
+  checkForUpdate();
+});
