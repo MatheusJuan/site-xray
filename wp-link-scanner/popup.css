@@ -394,6 +394,13 @@ body {
   color: #eafeff;
 }
 
+.badge-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .badge {
   flex-shrink: 0;
   font-size: 9.5px;

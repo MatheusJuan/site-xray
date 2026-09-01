@@ -25,7 +25,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.6.0**.
+Versão atual do manifest: **1.6.1**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -127,7 +127,13 @@ Uma única chamada a `chrome.scripting.executeScript` (`extractSeoData`,
 - **Imagens**: total, quantas sem ALT, quantas sem title; lista separada em
   "Sem ALT ou Title" (problema) e "Completas"
 - **Links**: todos os `<a href>`, deduplicados por (href + texto do link),
-  com contagem de repetição; clique abre em aba de fundo
+  com contagem de repetição; clique abre em aba de fundo. Depois da lista
+  vir do DOM, uma segunda passada testa o status HTTP só dos links
+  **internos** (mesmo origin), com teto de `LINK_STATUS_CAP` (40)
+  requisições únicas, pra achar link quebrado/redirecionamento sem virar
+  crawler. Badge verde/amarelo por link testado; links externos ou além do
+  teto ficam sem badge de status. Entra no relatório copiável quando acha
+  algum quebrado
 - **Social**: tags Open Graph (`og:*`) e Twitter Card (`twitter:*`)
 
 ## Decisões de arquitetura importantes

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SiteXray",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Detecta se o site atual roda WordPress, lista links públicos sensíveis e rastreadores/pixels carregados na página.",
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["http://*/*", "https://*/*"],

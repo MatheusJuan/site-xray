@@ -34,6 +34,7 @@ const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 const SEVERITY_LABEL = { critical: "🔴 Crítico", warning: "🟡 Atenção", info: "🟢 Info" };
 
 const FETCH_TIMEOUT_MS = 6000;
+const LINK_STATUS_CAP = 40;
 
 // Sinais de tecnologia funcionam pra qualquer site, WordPress ou não.
 // WordPress em si não entra aqui: já tem detecção própria (com fallback via /wp-json/).
@@ -403,6 +404,42 @@ function extractSeoData() {
   };
 }
 
+// Testa status só dos links internos (mesmo origin), com teto de LINK_STATUS_CAP
+// requisições únicas, pra não travar o popup em páginas com muitos links.
+async function checkLinkStatuses(links, origin) {
+  const internalHrefs = [...new Set(
+    links
+      .map((l) => l.href)
+      .filter((href) => {
+        try {
+          return new URL(href).origin === origin;
+        } catch {
+          return false;
+        }
+      })
+  )].slice(0, LINK_STATUS_CAP);
+
+  const results = await Promise.all(
+    internalHrefs.map(async (href) => {
+      try {
+        const res = await fetchWithTimeout(href, { method: "GET" });
+        return [href, { status: res.status, ok: res.ok }];
+      } catch {
+        return [href, { status: null, ok: false }];
+      }
+    })
+  );
+
+  const statusMap = new Map(results);
+  links.forEach((l) => {
+    const s = statusMap.get(l.href);
+    if (s) {
+      l.status = s.status;
+      l.statusOk = s.ok;
+    }
+  });
+}
+
 async function scanSeo() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) return null;
@@ -622,8 +659,9 @@ function renderSeoLinks(links) {
   [...links]
     .sort((a, b) => b.count - a.count)
     .forEach((l) => {
+      const hasStatus = l.status !== undefined;
       const li = document.createElement("li");
-      li.className = "severity-info";
+      li.className = "severity-" + (hasStatus && !l.statusOk ? "warning" : "info");
 
       const row = document.createElement("div");
       row.className = "link-row";
@@ -637,12 +675,23 @@ function renderSeoLinks(links) {
         openInBackground(l.href);
       });
 
-      const badge = document.createElement("span");
-      badge.className = "badge badge-ok";
-      badge.textContent = "x" + l.count;
+      const badgeGroup = document.createElement("span");
+      badgeGroup.className = "badge-group";
+
+      const countBadge = document.createElement("span");
+      countBadge.className = "badge badge-ok";
+      countBadge.textContent = "x" + l.count;
+      badgeGroup.appendChild(countBadge);
+
+      if (hasStatus) {
+        const statusBadge = document.createElement("span");
+        statusBadge.className = "badge " + (l.statusOk ? "badge-ok" : "badge-warn");
+        statusBadge.textContent = l.status || "erro";
+        badgeGroup.appendChild(statusBadge);
+      }
 
       row.appendChild(a);
-      row.appendChild(badge);
+      row.appendChild(badgeGroup);
 
       const urlNote = document.createElement("div");
       urlNote.className = "risk-note";
@@ -837,6 +886,11 @@ function buildReport() {
     lines.push(`- H1 na página: ${lastSeoData.headings.filter((h) => h.level === 1).length}`);
     lines.push(`- Imagens sem ALT: ${withoutAlt} de ${lastSeoData.images.length}`);
     lines.push(`- Links na página: ${lastSeoData.links.length}`);
+    const brokenLinks = lastSeoData.links.filter((l) => l.status !== undefined && !l.statusOk);
+    if (brokenLinks.length > 0) {
+      lines.push(`- Links internos com problema (${brokenLinks.length}):`);
+      brokenLinks.forEach((l) => lines.push(`  - [${l.status || "erro"}] ${l.href}`));
+    }
   } else {
     lines.push("- Não foi possível analisar (script bloqueado nesta página).");
   }
@@ -887,7 +941,13 @@ async function runScan() {
 
   // Trackers/pixels e SEO on-page são verificados independente do site ser WordPress ou não.
   detectTrackers().then(renderTrackers);
-  scanSeo().then(renderSeo);
+  scanSeo().then(async (data) => {
+    renderSeo(data);
+    if (data && data.links.length > 0) {
+      await checkLinkStatuses(data.links, origin);
+      renderSeoLinks(data.links);
+    }
+  });
 
   const { html: homepageHtml, headers } = await fetchHomepage(origin);
 
