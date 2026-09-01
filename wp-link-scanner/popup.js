@@ -35,6 +35,25 @@ const SEVERITY_LABEL = { critical: "🔴 Crítico", warning: "🟡 Atenção", i
 
 const FETCH_TIMEOUT_MS = 6000;
 
+// Sinais de tecnologia funcionam pra qualquer site, WordPress ou não.
+// WordPress em si não entra aqui: já tem detecção própria (com fallback via /wp-json/).
+const TECH_SIGNATURES = [
+  { name: "Shopify", test: ({ html, headers }) => /cdn\.shopify\.com|Shopify\.theme/i.test(html || "") || /shopify/i.test(headers["x-shopid"] || headers["x-shardid"] || "") },
+  { name: "Wix", test: ({ html }) => /static\.wixstatic\.com|Wix\.com Website Builder/i.test(html || "") },
+  { name: "Squarespace", test: ({ html }) => /squarespace\.com|content="Squarespace/i.test(html || "") },
+  { name: "Webflow", test: ({ html }) => /webflow\.com|content="Webflow"/i.test(html || "") },
+  { name: "Drupal", test: ({ html, headers }) => /Drupal\.settings|content="Drupal/i.test(html || "") || /drupal/i.test(headers["x-generator"] || "") },
+  { name: "Joomla", test: ({ html }) => /content="Joomla/i.test(html || "") },
+  { name: "Next.js", test: ({ html }) => /__NEXT_DATA__|\/_next\/static/i.test(html || "") },
+  { name: "Magento", test: ({ html }) => /Mage\.Cookies|\/skin\/frontend\//i.test(html || "") }
+];
+
+const SECURITY_HEADERS = [
+  { key: "strict-transport-security", label: "Strict-Transport-Security (HSTS)" },
+  { key: "content-security-policy", label: "Content-Security-Policy" },
+  { key: "x-frame-options", label: "X-Frame-Options" }
+];
+
 const statusEl = document.getElementById("status");
 const originEl = document.getElementById("site-origin");
 const linksContainer = document.getElementById("links-container");
@@ -53,12 +72,18 @@ const sitemapList = document.getElementById("sitemap-list");
 const sitemapEmpty = document.getElementById("sitemap-empty");
 const openAllSitemapBtn = document.getElementById("open-all-sitemap-btn");
 const copyReportBtn = document.getElementById("copy-report-btn");
+const techContainer = document.getElementById("tech-container");
+const techList = document.getElementById("tech-list");
+const securityContainer = document.getElementById("security-container");
+const securityList = document.getElementById("security-list");
 
 let lastSitemapResults = [];
 
 let lastFoundResults = [];
 
 let lastTrackers = [];
+let lastTechStack = [];
+let lastSecurityChecks = [];
 let lastIsWordPress = false;
 let lastOrigin = "";
 
@@ -93,11 +118,51 @@ async function getActiveTabOrigin() {
 async function fetchHomepage(origin) {
   try {
     const res = await fetchWithTimeout(origin + "/");
-    if (!res.ok) return null;
-    return await res.text();
+    const headers = {};
+    res.headers.forEach((value, key) => { headers[key] = value; });
+    if (!res.ok) return { html: null, headers };
+    return { html: await res.text(), headers };
   } catch {
-    return null;
+    return { html: null, headers: {} };
   }
+}
+
+function detectTechStack(html, headers) {
+  return TECH_SIGNATURES
+    .filter((s) => {
+      try {
+        return !!s.test({ html, headers });
+      } catch {
+        return false;
+      }
+    })
+    .map((s) => s.name);
+}
+
+// Testa se a versão http:// redireciona pra https://. Só faz sentido
+// verificar quando o site já está sendo acessado via https.
+async function checkHttpsForced(origin) {
+  if (!origin.startsWith("https:")) return false;
+  try {
+    const res = await fetchWithTimeout(origin.replace("https:", "http:") + "/");
+    return res.url.startsWith("https:");
+  } catch {
+    return false;
+  }
+}
+
+function buildSecurityChecks(headers, httpsForced) {
+  const checks = SECURITY_HEADERS.map((h) => ({
+    label: h.label,
+    ok: !!headers[h.key],
+    note: headers[h.key] ? "Presente." : "Ausente, recomenda-se configurar."
+  }));
+  checks.push({
+    label: "HTTPS forçado",
+    ok: httpsForced,
+    note: httpsForced ? "http:// redireciona para https://." : "http:// não redireciona para https://."
+  });
+  return checks;
 }
 
 async function detectWordPress(origin, homepageHtml) {
@@ -278,6 +343,57 @@ function renderTrackers(names) {
   trackersContainer.classList.remove("hidden");
 }
 
+function renderTech(names) {
+  techList.innerHTML = "";
+  lastTechStack = names || [];
+  if (!names || names.length === 0) {
+    techContainer.classList.add("hidden");
+    return;
+  }
+  const li = document.createElement("li");
+  names.forEach((name) => {
+    const badge = document.createElement("span");
+    badge.className = "tracker-badge";
+    badge.textContent = name;
+    li.appendChild(badge);
+  });
+  techList.appendChild(li);
+  techContainer.classList.remove("hidden");
+}
+
+function renderSecurity(checks) {
+  securityList.innerHTML = "";
+  lastSecurityChecks = checks;
+
+  checks.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = "severity-" + (item.ok ? "info" : "warning");
+
+    const row = document.createElement("div");
+    row.className = "link-row";
+
+    const label = document.createElement("span");
+    label.textContent = item.label;
+
+    const badge = document.createElement("span");
+    badge.className = "badge " + (item.ok ? "badge-ok" : "badge-warn");
+    badge.textContent = item.ok ? "OK" : "Ausente";
+
+    row.appendChild(label);
+    row.appendChild(badge);
+
+    const note = document.createElement("div");
+    note.className = "risk-note";
+    note.textContent = item.note;
+
+    li.appendChild(row);
+    li.appendChild(note);
+    securityList.appendChild(li);
+  });
+
+  securityContainer.classList.remove("hidden");
+}
+
 // Busca o sitemap por três fontes independentes, na ordem de confiabilidade:
 // robots.txt (quando existe) -> tag <link rel="sitemap"> da página -> caminhos padrão.
 // Roda sempre, mesmo que o site não seja identificado como WordPress.
@@ -400,6 +516,13 @@ function buildReport() {
   lines.push(`Relatório SiteXray - ${lastOrigin}`);
   lines.push(`Data: ${new Date().toLocaleDateString("pt-BR")}`);
   lines.push("");
+  lines.push(
+    lastTechStack.length > 0
+      ? `Tecnologia detectada: ${lastTechStack.join(", ")}`
+      : "Tecnologia detectada: não identificada"
+  );
+
+  lines.push("");
   lines.push(lastIsWordPress ? "WordPress: detectado" : "WordPress: não detectado");
 
   if (lastIsWordPress && lastFoundResults.length > 0) {
@@ -416,6 +539,12 @@ function buildReport() {
       ? `Rastreadores/pixels: ${lastTrackers.join(", ")}`
       : "Rastreadores/pixels: nenhum encontrado"
   );
+
+  lines.push("");
+  lines.push("Segurança:");
+  lastSecurityChecks.forEach((item) => {
+    lines.push(`- [${item.ok ? "OK" : "Ausente"}] ${item.label} - ${item.note}`);
+  });
 
   lines.push("");
   if (lastSitemapResults.length > 0) {
@@ -435,6 +564,8 @@ async function runScan() {
   sitemapContainer.classList.add("hidden");
   sitemapEmpty.classList.add("hidden");
   trackersContainer.classList.add("hidden");
+  techContainer.classList.add("hidden");
+  securityContainer.classList.add("hidden");
   emptyState.classList.add("hidden");
   rescanBtn.classList.add("hidden");
   copyReportBtn.classList.add("hidden");
@@ -460,13 +591,21 @@ async function runScan() {
   // Trackers/pixels são verificados independente do site ser WordPress ou não.
   detectTrackers().then(renderTrackers);
 
-  const homepageHtml = await fetchHomepage(origin);
+  const { html: homepageHtml, headers } = await fetchHomepage(origin);
 
   // Sitemap também é independente: roda mesmo que a detecção de WP falhe.
   discoverSitemaps(origin, homepageHtml).then(renderSitemapList);
 
-  const isWordPress = await detectWordPress(origin, homepageHtml);
+  const [isWordPress, httpsForced] = await Promise.all([
+    detectWordPress(origin, homepageHtml),
+    checkHttpsForced(origin)
+  ]);
   lastIsWordPress = isWordPress;
+
+  const techStack = detectTechStack(homepageHtml, headers);
+  if (isWordPress) techStack.unshift("WordPress");
+  renderTech(techStack);
+  renderSecurity(buildSecurityChecks(headers, httpsForced));
 
   if (!isWordPress) {
     statusEl.className = "status status-not-found";

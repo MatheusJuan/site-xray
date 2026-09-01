@@ -174,7 +174,9 @@ body {
 
 #links-list,
 #sitemap-list,
-#trackers-list {
+#trackers-list,
+#tech-list,
+#security-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -183,7 +185,8 @@ body {
 }
 
 #links-list li,
-#sitemap-list li {
+#sitemap-list li,
+#security-list li {
   padding: 7px 8px;
   border-radius: 3px;
   margin-bottom: 5px;
@@ -193,17 +196,20 @@ body {
 }
 
 #links-list li.severity-critical,
-#sitemap-list li.severity-critical {
+#sitemap-list li.severity-critical,
+#security-list li.severity-critical {
   border-left-color: var(--danger);
 }
 
 #links-list li.severity-warning,
-#sitemap-list li.severity-warning {
+#sitemap-list li.severity-warning,
+#security-list li.severity-warning {
   border-left-color: var(--warn);
 }
 
 #links-list li.severity-info,
-#sitemap-list li.severity-info {
+#sitemap-list li.severity-info,
+#security-list li.severity-info {
   border-left-color: var(--accent);
 }
 

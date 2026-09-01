@@ -24,7 +24,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.4.1**.
+Versão atual do manifest: **1.5.0**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -67,7 +67,26 @@ si** — nenhuma depende da detecção de WordPress ter dado certo, exceto a
      reCAPTCHA, Criteo, Taboola, Outbrain
    - Renderiza como badges simples, sem severidade (é informativo, não risco)
 
-4. **Detecção de WordPress + links sensíveis** (só aparece se detectado)
+4. **Tecnologia detectada** (sempre roda, independente de ser WordPress)
+   - Base de clientes é mista (WP e outras stacks), então esse fingerprint
+     funciona pra qualquer site: assinatura via HTML da home (meta generator,
+     scripts/CDNs conhecidos) e headers de resposta (`Server`, `X-Generator`
+     etc.)
+   - Detecta: Shopify, Wix, Squarespace, Webflow, Drupal, Joomla, Next.js,
+     Magento. WordPress usa a detecção própria (mais confiável, com fallback
+     em `/wp-json/`) e aparece nessa mesma lista quando identificado
+   - Renderiza como badges simples, igual aos rastreadores
+
+5. **Segurança** (sempre roda, independente de ser WordPress)
+   - Reaproveita a resposta já buscada em `fetchHomepage` (sem fetch extra):
+     checa presença de `Strict-Transport-Security`, `Content-Security-Policy`
+     e `X-Frame-Options`
+   - Testa também se `http://` redireciona pra `https://` (só roda esse
+     teste se o site já for acessado via https)
+   - Cada item mostra OK/Ausente com nota, mesmo estilo visual dos links de
+     WordPress (borda verde = ok, amarela = ausente)
+
+6. **Detecção de WordPress + links sensíveis** (só aparece se detectado)
    - Detecção: procura sinais no HTML da home (`wp-content`, `wp-includes`,
      `wp-json`, meta generator) e, como fallback, confirma direto batendo em
      `/wp-json/` e checando se a resposta JSON tem `name`/`namespaces`
@@ -83,10 +102,11 @@ si** — nenhuma depende da detecção de WordPress ter dado certo, exceto a
        risco em texto
    - Botão "Abrir todos"
 
-5. **Copiar relatório** (sempre disponível junto com "Escanear novamente")
+7. **Copiar relatório** (sempre disponível junto com "Escanear novamente")
    - Botão "📋 Copiar relatório" monta um texto em português com origem,
-     data, status de WordPress, links sensíveis achados (com severidade e
-     risco), rastreadores/pixels detectados e sitemaps encontrados
+     data, tecnologia detectada, status de WordPress, links sensíveis
+     achados (com severidade e risco), rastreadores/pixels detectados,
+     segurança (headers + HTTPS forçado) e sitemaps encontrados
    - Usa `navigator.clipboard.writeText`, pronto pra colar em orçamento ou
      proposta de cliente
 
@@ -136,11 +156,9 @@ Tema dark "hacker terminal", definido via CSS custom properties no topo do
 Ordenadas por impacto x esforço, conversadas mas não construídas ainda:
 
 - Detecção de plugins e tema ativo do WordPress (via caminhos de CSS/JS
-  carregados na home, ex: `wp-content/plugins/nome-do-plugin/`)
-- Headers de segurança da resposta (`X-Frame-Options`, `Content-Security-Policy`,
-  `Strict-Transport-Security`) — dado que já teríamos de graça, pois o fetch
-  já é feito
-- Checar se o site força HTTPS (testar a versão `http://` e ver se redireciona)
+  carregados na home, ex: `wp-content/plugins/nome-do-plugin/`) — baixa
+  prioridade porque a base de clientes é mista (WP e outras stacks), esse
+  item só ajuda a fatia WP
 - Histórico por domínio via `chrome.storage`, pra comparar scans ao longo do tempo
 - Exportar resultado em JSON/CSV
 - Badge no ícone da toolbar mostrando contagem de itens críticos/atenção sem
