@@ -25,7 +25,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.7.0**.
+Versão atual do manifest: **1.7.1**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -156,8 +156,13 @@ padrão) direto na página:
 - Mostra DOM (outerHTML truncado em 1500 chars), Layout (`width`/`height`
   via `getBoundingClientRect`), Position (`display`/`float`/`position` via
   `getComputedStyle`), Text (`font-family`/`font-size`/`line-height`),
+  Colors (`color`, `background-color`, `border-color` computados, com
+  swatch visual e conversão pra hex quando o valor vem em `rgb()`/`rgba()`),
   breadcrumb de Ancestors e lista de Children — cada um clicável pra
   re-inspecionar aquele nó
+  - Colors tem botão "Copiar" por linha (copia o hex quando dá pra
+    converter, senão o valor `rgb()` cru); as outras seções têm um botão
+    "Copiar" por bloco inteiro
   - Botão "Copiar" por bloco, com fallback pra `document.execCommand("copy")`
     quando `navigator.clipboard` não existe (sites `http://` não são secure
     context)

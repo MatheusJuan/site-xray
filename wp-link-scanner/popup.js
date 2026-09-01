@@ -539,7 +539,12 @@ function startElementInspector() {
     ".block.full{grid-column:1 / -1;}" +
     ".list-item{cursor:pointer;color:" + COLORS.cyan + ";font-size:10.5px;padding:2px 0;}" +
     ".list-item:hover{text-decoration:underline;}" +
-    ".empty{color:" + COLORS.textDim + ";font-size:10px;font-style:italic;}";
+    ".empty{color:" + COLORS.textDim + ";font-size:10px;font-style:italic;}" +
+    ".color-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid " + COLORS.border + ";font-size:10px;}" +
+    ".color-row:last-child{border-bottom:none;}" +
+    ".swatch{width:16px;height:16px;border-radius:3px;border:1px solid rgba(255,255,255,0.25);flex-shrink:0;}" +
+    ".color-label{color:" + COLORS.textDim + ";flex-shrink:0;min-width:110px;}" +
+    ".color-value{flex:1;color:" + COLORS.text + ";word-break:break-all;}";
   shadow.appendChild(style);
 
   const panel = document.createElement("div");
@@ -549,6 +554,14 @@ function startElementInspector() {
     '<div class="breadcrumb" id="sx-breadcrumb"></div>' +
     '<div class="body" id="sx-body"><div class="empty" style="grid-column:1/-1;">Clique em um elemento da página pra ver os detalhes.</div></div>';
   shadow.appendChild(panel);
+
+  function toHex(rgbStr) {
+    const m = rgbStr && rgbStr.match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const parts = m[1].split(",").map((s) => parseFloat(s.trim()));
+    if (parts.slice(0, 3).some((n) => Number.isNaN(n))) return null;
+    return "#" + parts.slice(0, 3).map((n) => Math.round(n).toString(16).padStart(2, "0")).join("");
+  }
 
   function describeEl(el) {
     if (!el || el.nodeType !== 1) return "";
@@ -641,6 +654,62 @@ function startElementInspector() {
       block.appendChild(pre);
       bodyEl.appendChild(block);
     });
+
+    const colorsBlock = document.createElement("div");
+    colorsBlock.className = "block full";
+    const colorsH4 = document.createElement("h4");
+    colorsH4.textContent = "Colors";
+    colorsBlock.appendChild(colorsH4);
+
+    const colorEntries = [
+      { label: "color", value: cs.color },
+      { label: "background-color", value: cs.backgroundColor },
+      { label: "border-color", value: cs.borderColor || cs.borderTopColor }
+    ].filter((c) => c.value);
+
+    if (colorEntries.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Nenhuma cor computada.";
+      colorsBlock.appendChild(empty);
+    } else {
+      colorEntries.forEach((c) => {
+        const hex = toHex(c.value);
+        const toCopy = hex || c.value;
+
+        const row = document.createElement("div");
+        row.className = "color-row";
+
+        const swatch = document.createElement("span");
+        swatch.className = "swatch";
+        swatch.style.background = c.value;
+
+        const label = document.createElement("span");
+        label.className = "color-label";
+        label.textContent = c.label + ":";
+
+        const value = document.createElement("span");
+        value.className = "color-value";
+        value.textContent = c.value + (hex ? " (" + hex + ")" : "");
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-btn";
+        copyBtn.textContent = "Copiar";
+        copyBtn.addEventListener("click", () => {
+          copyText(toCopy).then(() => {
+            copyBtn.textContent = "Copiado!";
+            setTimeout(() => { copyBtn.textContent = "Copiar"; }, 1200);
+          });
+        });
+
+        row.appendChild(swatch);
+        row.appendChild(label);
+        row.appendChild(value);
+        row.appendChild(copyBtn);
+        colorsBlock.appendChild(row);
+      });
+    }
+    bodyEl.appendChild(colorsBlock);
 
     [
       { title: "Ancestors", items: chain.slice(0, -1) },
