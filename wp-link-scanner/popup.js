@@ -38,14 +38,34 @@ const FETCH_TIMEOUT_MS = 6000;
 // Sinais de tecnologia funcionam pra qualquer site, WordPress ou não.
 // WordPress em si não entra aqui: já tem detecção própria (com fallback via /wp-json/).
 const TECH_SIGNATURES = [
+  // CMS / page builders
   { name: "Shopify", test: ({ html, headers }) => /cdn\.shopify\.com|Shopify\.theme/i.test(html || "") || /shopify/i.test(headers["x-shopid"] || headers["x-shardid"] || "") },
   { name: "Wix", test: ({ html }) => /static\.wixstatic\.com|Wix\.com Website Builder/i.test(html || "") },
   { name: "Squarespace", test: ({ html }) => /squarespace\.com|content="Squarespace/i.test(html || "") },
   { name: "Webflow", test: ({ html }) => /webflow\.com|content="Webflow"/i.test(html || "") },
   { name: "Drupal", test: ({ html, headers }) => /Drupal\.settings|content="Drupal/i.test(html || "") || /drupal/i.test(headers["x-generator"] || "") },
   { name: "Joomla", test: ({ html }) => /content="Joomla/i.test(html || "") },
+
+  // Frameworks JS (detecção limitada: só HTML estático da home, sem executar JS)
   { name: "Next.js", test: ({ html }) => /__NEXT_DATA__|\/_next\/static/i.test(html || "") },
-  { name: "Magento", test: ({ html }) => /Mage\.Cookies|\/skin\/frontend\//i.test(html || "") }
+  { name: "Nuxt.js", test: ({ html }) => /__NUXT__/i.test(html || "") },
+  { name: "Angular", test: ({ html }) => /ng-version=/i.test(html || "") },
+  { name: "Vue.js", test: ({ html }) => /data-server-rendered="true"|cdn\.jsdelivr\.net\/npm\/vue|unpkg\.com\/vue/i.test(html || "") },
+
+  // E-commerce
+  { name: "WooCommerce", test: ({ html }) => /woocommerce/i.test(html || "") },
+  { name: "PrestaShop", test: ({ html }) => /PrestaShop|\/modules\/ps_/i.test(html || "") },
+  { name: "Magento", test: ({ html }) => /Mage\.Cookies|\/skin\/frontend\//i.test(html || "") },
+
+  // CSS framework
+  { name: "Bootstrap", test: ({ html }) => /bootstrap(\.min)?\.css|bootstrap\.bundle/i.test(html || "") },
+
+  // CDN / hosting
+  { name: "Cloudflare", test: ({ headers }) => !!headers["cf-ray"] || /cloudflare/i.test(headers["server"] || "") },
+  { name: "Vercel", test: ({ headers }) => !!headers["x-vercel-id"] || /vercel/i.test(headers["server"] || "") },
+  { name: "Netlify", test: ({ headers }) => !!headers["x-nf-request-id"] || /netlify/i.test(headers["server"] || "") },
+  { name: "Fastly", test: ({ headers }) => !!headers["x-fastly-request-id"] || /fastly/i.test(headers["x-served-by"] || "") },
+  { name: "Amazon CloudFront", test: ({ headers }) => !!headers["x-amz-cf-id"] || /cloudfront/i.test(headers["via"] || "") }
 ];
 
 const SECURITY_HEADERS = [
@@ -128,7 +148,7 @@ async function fetchHomepage(origin) {
 }
 
 function detectTechStack(html, headers) {
-  return TECH_SIGNATURES
+  const matches = TECH_SIGNATURES
     .filter((s) => {
       try {
         return !!s.test({ html, headers });
@@ -137,6 +157,12 @@ function detectTechStack(html, headers) {
       }
     })
     .map((s) => s.name);
+
+  // Header cru, além das assinaturas de CDN acima: útil pra saber se é
+  // nginx, Apache, LiteSpeed etc., algo que nenhuma assinatura fixa cobre.
+  if (headers["server"]) matches.push(`Servidor: ${headers["server"]}`);
+
+  return matches;
 }
 
 // Testa se a versão http:// redireciona pra https://. Só faz sentido

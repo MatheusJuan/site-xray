@@ -24,7 +24,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.5.0**.
+Versão atual do manifest: **1.5.1**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -72,9 +72,17 @@ si** — nenhuma depende da detecção de WordPress ter dado certo, exceto a
      funciona pra qualquer site: assinatura via HTML da home (meta generator,
      scripts/CDNs conhecidos) e headers de resposta (`Server`, `X-Generator`
      etc.)
-   - Detecta: Shopify, Wix, Squarespace, Webflow, Drupal, Joomla, Next.js,
-     Magento. WordPress usa a detecção própria (mais confiável, com fallback
-     em `/wp-json/`) e aparece nessa mesma lista quando identificado
+   - Categorias cobertas (lista própria em `TECH_SIGNATURES`, tipo
+     Wappalyzer caseiro, sem dependência externa):
+     - CMS/page builder: Shopify, Wix, Squarespace, Webflow, Drupal, Joomla
+     - Framework JS: Next.js, Nuxt.js, Angular, Vue.js (detecção via HTML
+       estático da home, sem executar JS, então cobertura é parcial)
+     - E-commerce: WooCommerce, PrestaShop, Magento
+     - CSS framework: Bootstrap
+     - CDN/hosting: Cloudflare, Vercel, Netlify, Fastly, Amazon CloudFront
+     - Header `Server` cru também aparece como badge (ex: "Servidor: nginx")
+   - WordPress usa a detecção própria (mais confiável, com fallback em
+     `/wp-json/`) e aparece nessa mesma lista quando identificado
    - Renderiza como badges simples, igual aos rastreadores
 
 5. **Segurança** (sempre roda, independente de ser WordPress)
