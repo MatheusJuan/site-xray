@@ -96,6 +96,14 @@ const techContainer = document.getElementById("tech-container");
 const techList = document.getElementById("tech-list");
 const securityContainer = document.getElementById("security-container");
 const securityList = document.getElementById("security-list");
+const tabsEl = document.getElementById("tabs");
+const seoSummaryList = document.getElementById("seo-summary-list");
+const seoHeadersList = document.getElementById("seo-headers-list");
+const seoImagesSummary = document.getElementById("seo-images-summary");
+const seoImagesIssuesList = document.getElementById("seo-images-issues-list");
+const seoImagesOkList = document.getElementById("seo-images-ok-list");
+const seoLinksList = document.getElementById("seo-links-list");
+const seoSocialList = document.getElementById("seo-social-list");
 
 let lastSitemapResults = [];
 
@@ -106,6 +114,7 @@ let lastTechStack = [];
 let lastSecurityChecks = [];
 let lastIsWordPress = false;
 let lastOrigin = "";
+let lastSeoData = null;
 
 function openInBackground(url) {
   // active: false mantém o foco no popup, então ele não fecha ao clicar.
@@ -336,6 +345,79 @@ function scanPageForTrackers() {
     .map((s) => s.name);
 }
 
+// Roda dentro da própria página (world: MAIN), igual scanPageForTrackers,
+// pra ler o DOM já renderizado (título, meta tags, headings, imagens, links reais).
+function extractSeoData() {
+  const getMeta = (name) => {
+    const el = document.querySelector(`meta[name="${name}" i]`);
+    return el ? el.getAttribute("content") : null;
+  };
+
+  const canonicalEl = document.querySelector('link[rel="canonical"]');
+
+  const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).map((el) => ({
+    level: Number(el.tagName.slice(1)),
+    text: el.textContent.trim().slice(0, 200)
+  }));
+
+  const images = Array.from(document.querySelectorAll("img")).map((img) => ({
+    src: img.currentSrc || img.src || "",
+    alt: img.getAttribute("alt"),
+    title: img.getAttribute("title")
+  }));
+
+  const linkMap = new Map();
+  document.querySelectorAll("a[href]").forEach((a) => {
+    const href = a.href;
+    const text = a.textContent.trim().slice(0, 120) || "(sem texto)";
+    const key = href + "|" + text;
+    if (linkMap.has(key)) {
+      linkMap.get(key).count++;
+    } else {
+      linkMap.set(key, { href, text, count: 1 });
+    }
+  });
+
+  const social = [];
+  document.querySelectorAll('meta[property^="og:"]').forEach((el) => {
+    social.push({ key: el.getAttribute("property"), value: el.getAttribute("content") });
+  });
+  document.querySelectorAll('meta[name^="twitter:"]').forEach((el) => {
+    social.push({ key: el.getAttribute("name"), value: el.getAttribute("content") });
+  });
+
+  return {
+    title: document.title || "",
+    description: getMeta("description"),
+    keywords: getMeta("keywords"),
+    url: location.href,
+    canonical: canonicalEl ? canonicalEl.href : null,
+    robotsMeta: getMeta("robots"),
+    author: getMeta("author"),
+    publisher: getMeta("publisher"),
+    lang: document.documentElement.lang || null,
+    headings,
+    images,
+    links: Array.from(linkMap.values()),
+    social
+  };
+}
+
+async function scanSeo() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) return null;
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: "MAIN",
+      func: extractSeoData
+    });
+    return result || null;
+  } catch {
+    return null;
+  }
+}
+
 async function detectTrackers() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) return [];
@@ -418,6 +500,179 @@ function renderSecurity(checks) {
   });
 
   securityContainer.classList.remove("hidden");
+}
+
+function addKvRow(list, label, value, missingLabel) {
+  const li = document.createElement("li");
+  li.className = "kv-row";
+
+  const labelEl = document.createElement("span");
+  labelEl.className = "kv-label";
+  labelEl.textContent = label;
+
+  const valueEl = document.createElement("span");
+  valueEl.className = "kv-value" + (value ? "" : " missing");
+  valueEl.textContent = value || missingLabel || "Ausente";
+
+  li.appendChild(labelEl);
+  li.appendChild(valueEl);
+  list.appendChild(li);
+}
+
+function renderSeoSummary(data) {
+  seoSummaryList.innerHTML = "";
+  if (!data) return;
+
+  addKvRow(seoSummaryList, "Title", data.title ? `${data.title} (${data.title.length} caracteres)` : null);
+  addKvRow(seoSummaryList, "Description", data.description ? `${data.description} (${data.description.length} caracteres)` : null);
+  addKvRow(seoSummaryList, "Keywords", data.keywords);
+  addKvRow(seoSummaryList, "URL", data.url);
+  addKvRow(seoSummaryList, "Canonical", data.canonical);
+  addKvRow(seoSummaryList, "Robots Tag", data.robotsMeta);
+  addKvRow(seoSummaryList, "Author", data.author);
+  addKvRow(seoSummaryList, "Publisher", data.publisher);
+  addKvRow(seoSummaryList, "Lang", data.lang);
+
+  const headingCounts = [0, 0, 0, 0, 0, 0];
+  data.headings.forEach((h) => headingCounts[h.level - 1]++);
+  addKvRow(seoSummaryList, "H1-H6", headingCounts.map((c, i) => `H${i + 1}:${c}`).join("  "));
+  addKvRow(seoSummaryList, "Imagens", String(data.images.length));
+  addKvRow(seoSummaryList, "Links", String(data.links.length));
+}
+
+function renderSeoHeaders(headings) {
+  seoHeadersList.innerHTML = "";
+  if (!headings || headings.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-state";
+    li.textContent = "Nenhum heading encontrado.";
+    seoHeadersList.appendChild(li);
+    return;
+  }
+
+  headings.forEach((h) => {
+    const li = document.createElement("li");
+    li.style.paddingLeft = 8 + (h.level - 1) * 14 + "px";
+
+    const tag = document.createElement("span");
+    tag.className = "heading-tag";
+    tag.textContent = "H" + h.level;
+
+    li.appendChild(tag);
+    li.appendChild(document.createTextNode(h.text));
+    seoHeadersList.appendChild(li);
+  });
+}
+
+function renderSeoImages(images) {
+  seoImagesSummary.innerHTML = "";
+  seoImagesIssuesList.innerHTML = "";
+  seoImagesOkList.innerHTML = "";
+
+  const withoutAlt = images.filter((img) => !img.alt).length;
+  const withoutTitle = images.filter((img) => !img.title).length;
+
+  [["Imagens", images.length], ["Sem ALT", withoutAlt], ["Sem Title", withoutTitle]].forEach(([label, value]) => {
+    const box = document.createElement("div");
+    box.className = "seo-stat";
+
+    const val = document.createElement("div");
+    val.className = "seo-stat-value";
+    val.textContent = value;
+
+    const lbl = document.createElement("div");
+    lbl.className = "seo-stat-label";
+    lbl.textContent = label;
+
+    box.appendChild(val);
+    box.appendChild(lbl);
+    seoImagesSummary.appendChild(box);
+  });
+
+  images.forEach((img) => {
+    const li = document.createElement("li");
+    const hasIssue = !img.alt || !img.title;
+    li.className = "severity-" + (hasIssue ? "warning" : "info");
+
+    const row = document.createElement("div");
+    row.className = "link-row";
+    const name = document.createElement("span");
+    name.textContent = (img.src || "").split("/").pop() || img.src || "(sem src)";
+    name.title = img.src || "";
+    row.appendChild(name);
+
+    const alt = document.createElement("div");
+    alt.className = "risk-note";
+    alt.textContent = "ALT: " + (img.alt || "ausente");
+
+    const title = document.createElement("div");
+    title.className = "risk-note";
+    title.textContent = "Title: " + (img.title || "ausente");
+
+    li.appendChild(row);
+    li.appendChild(alt);
+    li.appendChild(title);
+
+    (hasIssue ? seoImagesIssuesList : seoImagesOkList).appendChild(li);
+  });
+}
+
+function renderSeoLinks(links) {
+  seoLinksList.innerHTML = "";
+  [...links]
+    .sort((a, b) => b.count - a.count)
+    .forEach((l) => {
+      const li = document.createElement("li");
+      li.className = "severity-info";
+
+      const row = document.createElement("div");
+      row.className = "link-row";
+
+      const a = document.createElement("a");
+      a.href = l.href;
+      a.textContent = l.text;
+      a.title = l.href;
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        openInBackground(l.href);
+      });
+
+      const badge = document.createElement("span");
+      badge.className = "badge badge-ok";
+      badge.textContent = "x" + l.count;
+
+      row.appendChild(a);
+      row.appendChild(badge);
+
+      const urlNote = document.createElement("div");
+      urlNote.className = "risk-note";
+      urlNote.textContent = l.href;
+
+      li.appendChild(row);
+      li.appendChild(urlNote);
+      seoLinksList.appendChild(li);
+    });
+}
+
+function renderSeoSocial(social) {
+  seoSocialList.innerHTML = "";
+  if (!social || social.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-state";
+    li.textContent = "Nenhuma tag Open Graph ou Twitter Card encontrada.";
+    seoSocialList.appendChild(li);
+    return;
+  }
+  social.forEach((item) => addKvRow(seoSocialList, item.key, item.value));
+}
+
+function renderSeo(data) {
+  lastSeoData = data;
+  renderSeoSummary(data);
+  renderSeoHeaders(data ? data.headings : []);
+  renderSeoImages(data ? data.images : []);
+  renderSeoLinks(data ? data.links : []);
+  renderSeoSocial(data ? data.social : []);
 }
 
 // Busca o sitemap por três fontes independentes, na ordem de confiabilidade:
@@ -573,6 +828,20 @@ function buildReport() {
   });
 
   lines.push("");
+  lines.push("SEO on-page:");
+  if (lastSeoData) {
+    const withoutAlt = lastSeoData.images.filter((img) => !img.alt).length;
+    lines.push(`- Title: ${lastSeoData.title || "ausente"} (${(lastSeoData.title || "").length} caracteres)`);
+    lines.push(`- Description: ${lastSeoData.description ? lastSeoData.description.length + " caracteres" : "ausente"}`);
+    lines.push(`- Canonical: ${lastSeoData.canonical || "ausente"}`);
+    lines.push(`- H1 na página: ${lastSeoData.headings.filter((h) => h.level === 1).length}`);
+    lines.push(`- Imagens sem ALT: ${withoutAlt} de ${lastSeoData.images.length}`);
+    lines.push(`- Links na página: ${lastSeoData.links.length}`);
+  } else {
+    lines.push("- Não foi possível analisar (script bloqueado nesta página).");
+  }
+
+  lines.push("");
   if (lastSitemapResults.length > 0) {
     lines.push("Sitemaps encontrados:");
     lastSitemapResults.forEach((r) => lines.push(`- ${r.url}`));
@@ -592,6 +861,7 @@ async function runScan() {
   trackersContainer.classList.add("hidden");
   techContainer.classList.add("hidden");
   securityContainer.classList.add("hidden");
+  tabsEl.classList.add("hidden");
   emptyState.classList.add("hidden");
   rescanBtn.classList.add("hidden");
   copyReportBtn.classList.add("hidden");
@@ -613,9 +883,11 @@ async function runScan() {
   defaultSitemapLinkEl.href = origin + "/sitemap.xml";
   googleSiteLinkEl.href = "https://www.google.com/search?q=" + encodeURIComponent("site:" + hostname);
   domainToolsEl.classList.remove("hidden");
+  tabsEl.classList.remove("hidden");
 
-  // Trackers/pixels são verificados independente do site ser WordPress ou não.
+  // Trackers/pixels e SEO on-page são verificados independente do site ser WordPress ou não.
   detectTrackers().then(renderTrackers);
+  scanSeo().then(renderSeo);
 
   const { html: homepageHtml, headers } = await fetchHomepage(origin);
 
@@ -689,6 +961,24 @@ copyReportBtn.addEventListener("click", async () => {
   setTimeout(() => {
     copyReportBtn.textContent = original;
   }, 1500);
+});
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.remove("hidden");
+  });
+});
+
+document.querySelectorAll(".subtab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".subtab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".subtab-panel").forEach((p) => p.classList.add("hidden"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.subtab).classList.remove("hidden");
+  });
 });
 
 document.addEventListener("DOMContentLoaded", runScan);

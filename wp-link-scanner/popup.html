@@ -21,41 +21,84 @@
     <a id="google-site-link" href="#" target="_blank" rel="noopener noreferrer">🔎 Páginas indexadas no Google (site:)</a>
   </div>
 
-  <div id="sitemap-container" class="links-container hidden">
-    <div class="section-title-row">
-      <span class="section-title">Sitemap</span>
-      <button id="open-all-sitemap-btn" class="open-all-btn">Abrir todos</button>
+  <div id="tabs" class="tabs hidden">
+    <button class="tab-btn active" data-tab="geral">Visão Geral</button>
+    <button class="tab-btn" data-tab="seguranca">Segurança</button>
+    <button class="tab-btn" data-tab="seo">SEO</button>
+  </div>
+
+  <div id="tab-geral" class="tab-panel">
+    <div id="sitemap-container" class="links-container hidden">
+      <div class="section-title-row">
+        <span class="section-title">Sitemap</span>
+        <button id="open-all-sitemap-btn" class="open-all-btn">Abrir todos</button>
+      </div>
+      <ul id="sitemap-list"></ul>
     </div>
-    <ul id="sitemap-list"></ul>
-  </div>
-  <div id="sitemap-empty" class="empty-state hidden">Nenhum sitemap encontrado neste site.</div>
+    <div id="sitemap-empty" class="empty-state hidden">Nenhum sitemap encontrado neste site.</div>
 
-  <div id="trackers-container" class="links-container hidden">
-    <div class="section-title">Rastreadores e pixels na página</div>
-    <ul id="trackers-list"></ul>
-  </div>
-
-  <div id="tech-container" class="links-container hidden">
-    <div class="section-title">Tecnologia detectada</div>
-    <ul id="tech-list"></ul>
-  </div>
-
-  <div id="security-container" class="links-container hidden">
-    <div class="section-title">Segurança</div>
-    <ul id="security-list"></ul>
-  </div>
-
-  <div id="links-container" class="links-container hidden">
-    <div class="section-title-row">
-      <span class="section-title">Links encontrados</span>
-      <button id="open-all-btn" class="open-all-btn">Abrir todos</button>
+    <div id="trackers-container" class="links-container hidden">
+      <div class="section-title">Rastreadores e pixels na página</div>
+      <ul id="trackers-list"></ul>
     </div>
-    <div class="hint">Os links abrem em segundo plano, sem fechar este popup.</div>
-    <ul id="links-list"></ul>
+
+    <div id="tech-container" class="links-container hidden">
+      <div class="section-title">Tecnologia detectada</div>
+      <ul id="tech-list"></ul>
+    </div>
+
+    <div id="links-container" class="links-container hidden">
+      <div class="section-title-row">
+        <span class="section-title">Links encontrados</span>
+        <button id="open-all-btn" class="open-all-btn">Abrir todos</button>
+      </div>
+      <div class="hint">Os links abrem em segundo plano, sem fechar este popup.</div>
+      <ul id="links-list"></ul>
+    </div>
+
+    <div id="empty-state" class="empty-state hidden">
+      Nenhum indício de WordPress foi encontrado neste site.
+    </div>
   </div>
 
-  <div id="empty-state" class="empty-state hidden">
-    Nenhum indício de WordPress foi encontrado neste site.
+  <div id="tab-seguranca" class="tab-panel hidden">
+    <div id="security-container" class="links-container hidden">
+      <ul id="security-list"></ul>
+    </div>
+  </div>
+
+  <div id="tab-seo" class="tab-panel hidden">
+    <div class="subtabs">
+      <button class="subtab-btn active" data-subtab="seo-resumo">Resumo</button>
+      <button class="subtab-btn" data-subtab="seo-headers">Headers</button>
+      <button class="subtab-btn" data-subtab="seo-imagens">Imagens</button>
+      <button class="subtab-btn" data-subtab="seo-links">Links</button>
+      <button class="subtab-btn" data-subtab="seo-social">Social</button>
+    </div>
+
+    <div id="seo-resumo" class="subtab-panel">
+      <ul id="seo-summary-list" class="kv-list"></ul>
+    </div>
+
+    <div id="seo-headers" class="subtab-panel hidden">
+      <ul id="seo-headers-list"></ul>
+    </div>
+
+    <div id="seo-imagens" class="subtab-panel hidden">
+      <div id="seo-images-summary" class="seo-stats"></div>
+      <div class="section-title">Sem ALT ou Title</div>
+      <ul id="seo-images-issues-list"></ul>
+      <div class="section-title">Completas</div>
+      <ul id="seo-images-ok-list"></ul>
+    </div>
+
+    <div id="seo-links" class="subtab-panel hidden">
+      <ul id="seo-links-list"></ul>
+    </div>
+
+    <div id="seo-social" class="subtab-panel hidden">
+      <ul id="seo-social-list" class="kv-list"></ul>
+    </div>
   </div>
 
   <button id="rescan" class="rescan-btn hidden">Escanear novamente</button>

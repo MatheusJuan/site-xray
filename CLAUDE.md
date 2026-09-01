@@ -1,9 +1,10 @@
 # SiteXray
 
 Extensão de navegador (Chrome, Manifest V3) que analisa o site aberto na aba
-ativa e mostra, em um popup, informações públicas úteis para diagnóstico:
-detecção de WordPress, links sensíveis do WP, sitemap, rastreadores/pixels de
-marketing instalados na página e atalhos de consulta de domínio.
+ativa e mostra, em um popup com abas, informações públicas úteis para
+diagnóstico: detecção de WordPress, links sensíveis do WP, sitemap,
+rastreadores/pixels de marketing, tecnologia usada no site, segurança
+(headers + HTTPS) e SEO on-page (title, headings, imagens, links, social).
 
 Contexto de uso: o autor é freelancer/dev front-end que atende clientes de
 sites (muitos em WordPress) e usa a extensão para analisar rapidamente o site
@@ -24,7 +25,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.5.1**.
+Versão atual do manifest: **1.6.0**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -37,86 +38,97 @@ novas seções/funcionalidades).**
 ## Funcionalidades atuais
 
 O popup roda `runScan()` automaticamente ao abrir (`DOMContentLoaded`) e tem
-um botão "Escanear novamente". As seções abaixo são **independentes entre
-si** — nenhuma depende da detecção de WordPress ter dado certo, exceto a
-última:
+um botão "Escanear novamente". A partir da v1.6.0 o conteúdo é organizado em
+**abas** (`.tab-btn` / `.tab-panel`, trocadas via JS puro, sem lib): **Visão
+Geral**, **Segurança** e **SEO**. Dentro de SEO tem sub-abas (`.subtab-btn` /
+`.subtab-panel`): Resumo, Headers, Imagens, Links, Social.
 
-1. **Ferramentas de domínio** (sempre aparece)
-   - Link para WHOIS do domínio (`who.is/whois/{hostname}`)
-   - Link fixo para o sitemap padrão da raiz (`{origin}/sitemap.xml`)
-   - Link para busca no Google com operador `site:{hostname}` (páginas indexadas)
+Sempre visível, fora das abas: header, status do scan, ferramentas de
+domínio, botão "Escanear novamente" e botão "Copiar relatório".
 
-2. **Sitemap** (sempre roda, independente de ser WordPress)
-   - Descoberto por 3 fontes, nessa ordem de prioridade/confiabilidade:
-     1. Linhas `Sitemap:` do `robots.txt`
-     2. Tag `<link rel="sitemap">` no `<head>` do HTML da home
-     3. Lista de caminhos padrão como fallback (`/sitemap.xml`,
-        `/sitemap_index.xml`, `/sitemap-index.xml`, `/wp-sitemap.xml`,
-        `/page-sitemap.xml`, `/post-sitemap.xml`)
+Todo o conteúdo dentro das abas é **independente entre si** — nenhuma seção
+depende da detecção de WordPress ter dado certo, exceto os links sensíveis
+de WordPress dentro de Visão Geral.
+
+### Sempre visível (fora das abas)
+
+- **Ferramentas de domínio**: link WHOIS (`who.is/whois/{hostname}`), link
+  fixo pro sitemap padrão (`{origin}/sitemap.xml`), busca no Google com
+  `site:{hostname}`
+- **Copiar relatório**: botão "📋 Copiar relatório" monta um texto em
+  português com origem, data, tecnologia detectada, status de WordPress,
+  links sensíveis achados (severidade + risco), rastreadores/pixels,
+  segurança (headers + HTTPS forçado) e um resumo de SEO on-page. Usa
+  `navigator.clipboard.writeText`, pronto pra colar em orçamento/proposta
+
+### Aba Visão Geral
+
+1. **Sitemap** — descoberto por 3 fontes, nessa ordem de prioridade:
+   1. Linhas `Sitemap:` do `robots.txt`
+   2. Tag `<link rel="sitemap">` no `<head>` do HTML da home
+   3. Lista de caminhos padrão como fallback (`/sitemap.xml`,
+      `/sitemap_index.xml`, `/sitemap-index.xml`, `/wp-sitemap.xml`,
+      `/page-sitemap.xml`, `/post-sitemap.xml`)
    - Resultado deduplicado por URL, só mostra os que responderam `ok`
    - Botão "Abrir todos" (abre em abas de fundo, ver seção UX abaixo)
 
-3. **Rastreadores e pixels na página** (sempre roda, independente de ser WordPress)
-   - Usa `chrome.scripting.executeScript` com `world: "MAIN"` na aba ativa
-     (não é fetch de HTML bruto — lê a página já renderizada de verdade,
-     incluindo scripts injetados dinamicamente)
-   - Detecta via `window.*` globals e/ou `<script src>`: Meta Pixel, Google
-     Tag Manager, Google Analytics (GA4/Universal), Google Ads, TikTok Pixel,
-     Pinterest Tag, Snapchat Pixel, LinkedIn Insight Tag, Twitter/X Pixel,
-     Hotjar, Microsoft Clarity, Jetpack Stats, HubSpot, Matomo/Piwik, Google
-     reCAPTCHA, Criteo, Taboola, Outbrain
-   - Renderiza como badges simples, sem severidade (é informativo, não risco)
+2. **Rastreadores e pixels na página** — usa
+   `chrome.scripting.executeScript` com `world: "MAIN"` na aba ativa (lê a
+   página já renderizada, incluindo scripts injetados dinamicamente).
+   Detecta via `window.*` globals e/ou `<script src>`: Meta Pixel, Google
+   Tag Manager, Google Analytics, Google Ads, TikTok Pixel, Pinterest Tag,
+   Snapchat Pixel, LinkedIn Insight Tag, Twitter/X Pixel, Hotjar, Microsoft
+   Clarity, Jetpack Stats, HubSpot, Matomo/Piwik, Google reCAPTCHA, Criteo,
+   Taboola, Outbrain. Badges simples, sem severidade
 
-4. **Tecnologia detectada** (sempre roda, independente de ser WordPress)
-   - Base de clientes é mista (WP e outras stacks), então esse fingerprint
-     funciona pra qualquer site: assinatura via HTML da home (meta generator,
-     scripts/CDNs conhecidos) e headers de resposta (`Server`, `X-Generator`
-     etc.)
-   - Categorias cobertas (lista própria em `TECH_SIGNATURES`, tipo
-     Wappalyzer caseiro, sem dependência externa):
-     - CMS/page builder: Shopify, Wix, Squarespace, Webflow, Drupal, Joomla
-     - Framework JS: Next.js, Nuxt.js, Angular, Vue.js (detecção via HTML
-       estático da home, sem executar JS, então cobertura é parcial)
-     - E-commerce: WooCommerce, PrestaShop, Magento
-     - CSS framework: Bootstrap
-     - CDN/hosting: Cloudflare, Vercel, Netlify, Fastly, Amazon CloudFront
-     - Header `Server` cru também aparece como badge (ex: "Servidor: nginx")
-   - WordPress usa a detecção própria (mais confiável, com fallback em
+3. **Tecnologia detectada** — fingerprint próprio (`TECH_SIGNATURES`, tipo
+   Wappalyzer caseiro, sem dependência externa), via HTML estático da home
+   e headers de resposta:
+   - CMS/page builder: Shopify, Wix, Squarespace, Webflow, Drupal, Joomla
+   - Framework JS: Next.js, Nuxt.js, Angular, Vue.js (cobertura parcial, só
+     HTML estático, sem executar JS)
+   - E-commerce: WooCommerce, PrestaShop, Magento
+   - CSS framework: Bootstrap
+   - CDN/hosting: Cloudflare, Vercel, Netlify, Fastly, Amazon CloudFront
+   - Header `Server` cru também vira badge (ex: "Servidor: nginx")
+   - WordPress usa a detecção própria (mais confiável, fallback em
      `/wp-json/`) e aparece nessa mesma lista quando identificado
-   - Renderiza como badges simples, igual aos rastreadores
 
-5. **Segurança** (sempre roda, independente de ser WordPress)
-   - Reaproveita a resposta já buscada em `fetchHomepage` (sem fetch extra):
-     checa presença de `Strict-Transport-Security`, `Content-Security-Policy`
-     e `X-Frame-Options`
-   - Testa também se `http://` redireciona pra `https://` (só roda esse
-     teste se o site já for acessado via https)
-   - Cada item mostra OK/Ausente com nota, mesmo estilo visual dos links de
-     WordPress (borda verde = ok, amarela = ausente)
-
-6. **Detecção de WordPress + links sensíveis** (só aparece se detectado)
-   - Detecção: procura sinais no HTML da home (`wp-content`, `wp-includes`,
-     `wp-json`, meta generator) e, como fallback, confirma direto batendo em
-     `/wp-json/` e checando se a resposta JSON tem `name`/`namespaces`
-   - Se detectado, testa uma lista fixa de caminhos (`CANDIDATE_PATHS`) e
-     classifica cada um por **severidade**: 🔴 crítico / 🟡 atenção / 🟢 info
-     - Exemplos: `wp-json/wp/v2/users` (crítico, expõe usuários — lê o JSON
-       e mostra quantos e quais), `xmlrpc.php` (atenção, brute force),
-       `readme.html` (atenção, tenta extrair a versão exata do WP exposta),
-       `wp-content/uploads|plugins|themes` (info, mas escala pra crítico se
-       detectar listagem de diretório ativa via regex `index of /` no corpo
-       da resposta)
-     - Lista ordenada por severidade, cada item mostra status HTTP + nota de
-       risco em texto
+4. **Detecção de WordPress + links sensíveis** (só aparece se detectado) —
+   detecção via sinais no HTML da home (`wp-content`, `wp-includes`,
+   `wp-json`, meta generator) e, como fallback, confirma direto batendo em
+   `/wp-json/`. Se detectado, testa `CANDIDATE_PATHS` e classifica por
+   **severidade**: 🔴 crítico / 🟡 atenção / 🟢 info
+   - Exemplos: `wp-json/wp/v2/users` (crítico, expõe usuários), `xmlrpc.php`
+     (atenção, brute force), `readme.html` (atenção, versão exposta),
+     `wp-content/uploads|plugins|themes` (escala pra crítico se detectar
+     listagem de diretório ativa via regex `index of /`)
    - Botão "Abrir todos"
 
-7. **Copiar relatório** (sempre disponível junto com "Escanear novamente")
-   - Botão "📋 Copiar relatório" monta um texto em português com origem,
-     data, tecnologia detectada, status de WordPress, links sensíveis
-     achados (com severidade e risco), rastreadores/pixels detectados,
-     segurança (headers + HTTPS forçado) e sitemaps encontrados
-   - Usa `navigator.clipboard.writeText`, pronto pra colar em orçamento ou
-     proposta de cliente
+### Aba Segurança
+
+Reaproveita a resposta já buscada em `fetchHomepage` (sem fetch extra):
+- Presença de `Strict-Transport-Security`, `Content-Security-Policy`,
+  `X-Frame-Options`
+- Se `http://` redireciona pra `https://` (só testa quando o site já é
+  acessado via https)
+- Cada item mostra OK/Ausente com nota (borda verde = ok, amarela = ausente)
+
+### Aba SEO
+
+Uma única chamada a `chrome.scripting.executeScript` (`extractSeoData`,
+`world: "MAIN"`) lê o DOM já renderizado e alimenta as 5 sub-abas:
+
+- **Resumo**: title (+ contagem de caracteres), description (+ contagem),
+  keywords, URL, canonical, robots meta, author, publisher, lang, contagem
+  de H1-H6, total de imagens e links
+- **Headers**: árvore de H1 a H6 na ordem em que aparecem na página,
+  indentado por nível
+- **Imagens**: total, quantas sem ALT, quantas sem title; lista separada em
+  "Sem ALT ou Title" (problema) e "Completas"
+- **Links**: todos os `<a href>`, deduplicados por (href + texto do link),
+  com contagem de repetição; clique abre em aba de fundo
+- **Social**: tags Open Graph (`og:*`) e Twitter Card (`twitter:*`)
 
 ## Decisões de arquitetura importantes
 
@@ -140,6 +152,8 @@ si** — nenhuma depende da detecção de WordPress ter dado certo, exceto a
 Tema dark "hacker terminal", definido via CSS custom properties no topo do
 `popup.css`:
 
+- Popup com **420px** de largura (subiu de 340px na v1.6.0 pra caber abas e
+  listas de SEO como imagens/links sem espremer)
 - Fundo quase preto (`--bg: #0a0e12`) com leve glow radial verde/ciano nos
   cantos
 - Fonte monoespaçada (`--mono`, JetBrains Mono com fallbacks)
