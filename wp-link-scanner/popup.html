@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>WP Link Scanner</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <h1>WP Link Scanner</h1>
+    <span id="site-origin" class="origin"></span>
+  </div>
+
+  <div id="status" class="status status-checking">
+    Verificando o site...
+  </div>
+
+  <div id="domain-tools" class="domain-tools hidden">
+    <a id="whois-link" href="#" target="_blank" rel="noopener noreferrer">🔍 Ver dono do domínio (WHOIS)</a>
+    <a id="default-sitemap-link" href="#" target="_blank" rel="noopener noreferrer">📄 Sitemap padrão (/sitemap.xml)</a>
+    <a id="google-site-link" href="#" target="_blank" rel="noopener noreferrer">🔎 Páginas indexadas no Google (site:)</a>
+  </div>
+
+  <div id="sitemap-container" class="links-container hidden">
+    <div class="section-title-row">
+      <span class="section-title">Sitemap</span>
+      <button id="open-all-sitemap-btn" class="open-all-btn">Abrir todos</button>
+    </div>
+    <ul id="sitemap-list"></ul>
+  </div>
+  <div id="sitemap-empty" class="empty-state hidden">Nenhum sitemap encontrado neste site.</div>
+
+  <div id="trackers-container" class="links-container hidden">
+    <div class="section-title">Rastreadores e pixels na página</div>
+    <ul id="trackers-list"></ul>
+  </div>
+
+  <div id="links-container" class="links-container hidden">
+    <div class="section-title-row">
+      <span class="section-title">Links encontrados</span>
+      <button id="open-all-btn" class="open-all-btn">Abrir todos</button>
+    </div>
+    <div class="hint">Os links abrem em segundo plano, sem fechar este popup.</div>
+    <ul id="links-list"></ul>
+  </div>
+
+  <div id="empty-state" class="empty-state hidden">
+    Nenhum indício de WordPress foi encontrado neste site.
+  </div>
+
+  <button id="rescan" class="rescan-btn hidden">Escanear novamente</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>
