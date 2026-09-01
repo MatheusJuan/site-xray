@@ -83,6 +83,7 @@ const emptyState = document.getElementById("empty-state");
 const rescanBtn = document.getElementById("rescan");
 const domainToolsEl = document.getElementById("domain-tools");
 const whoisLinkEl = document.getElementById("whois-link");
+const dnsCheckerLinkEl = document.getElementById("dns-checker-link");
 const defaultSitemapLinkEl = document.getElementById("default-sitemap-link");
 const googleSiteLinkEl = document.getElementById("google-site-link");
 const openAllBtn = document.getElementById("open-all-btn");
@@ -1260,7 +1261,8 @@ async function runScan() {
 
   // O link de WHOIS não depende de ser WordPress, então já deixa disponível.
   const hostname = new URL(origin).hostname;
-  whoisLinkEl.href = "https://who.is/whois/" + hostname;
+  whoisLinkEl.href = "https://registro.br/tecnologia/ferramentas/whois?search=" + encodeURIComponent(hostname);
+  dnsCheckerLinkEl.href = "https://dnschecker.org/all-dns-records-of-domain.php?query=" + encodeURIComponent(hostname + "/") + "&rtype=ALL&dns=google";
   defaultSitemapLinkEl.href = origin + "/sitemap.xml";
   googleSiteLinkEl.href = "https://www.google.com/search?q=" + encodeURIComponent("site:" + hostname);
   domainToolsEl.classList.remove("hidden");
@@ -1317,6 +1319,11 @@ rescanBtn.addEventListener("click", runScan);
 whoisLinkEl.addEventListener("click", (e) => {
   e.preventDefault();
   openInBackground(whoisLinkEl.href);
+});
+
+dnsCheckerLinkEl.addEventListener("click", (e) => {
+  e.preventDefault();
+  openInBackground(dnsCheckerLinkEl.href);
 });
 
 defaultSitemapLinkEl.addEventListener("click", (e) => {

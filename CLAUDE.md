@@ -25,7 +25,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.7.1**.
+Versão atual do manifest: **1.7.2**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -53,9 +53,11 @@ de WordPress dentro de Visão Geral.
 
 ### Sempre visível (fora das abas)
 
-- **Ferramentas de domínio**: link WHOIS (`who.is/whois/{hostname}`), link
-  fixo pro sitemap padrão (`{origin}/sitemap.xml`), busca no Google com
-  `site:{hostname}`
+- **Ferramentas de domínio**: link WHOIS via registro.br
+  (`registro.br/tecnologia/ferramentas/whois?search={hostname}`), DNS
+  Checker (`dnschecker.org/all-dns-records-of-domain.php?query={hostname}/&rtype=ALL&dns=google`,
+  lista todos os registros DNS), link fixo pro sitemap padrão
+  (`{origin}/sitemap.xml`), busca no Google com `site:{hostname}`
 - **Copiar relatório**: botão "📋 Copiar relatório" monta um texto em
   português com origem, data, tecnologia detectada, status de WordPress,
   links sensíveis achados (severidade + risco), rastreadores/pixels,
