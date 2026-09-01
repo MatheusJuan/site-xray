@@ -25,6 +25,7 @@
     <button class="tab-btn active" data-tab="geral">Visão Geral</button>
     <button class="tab-btn" data-tab="seguranca">Segurança</button>
     <button class="tab-btn" data-tab="seo">SEO</button>
+    <button class="tab-btn" data-tab="elementinfo">Element Info</button>
   </div>
 
   <div id="tab-geral" class="tab-panel">
@@ -100,6 +101,17 @@
     <div id="seo-social" class="subtab-panel hidden">
       <ul id="seo-social-list" class="kv-list"></ul>
     </div>
+  </div>
+
+  <div id="tab-elementinfo" class="tab-panel hidden">
+    <div class="hint">
+      Ativa um inspetor visual na página atual: passe o mouse pra destacar o
+      elemento e clique pra ver DOM, layout, posição e texto. O painel
+      aparece embutido na própria página (rodapé fixo), não aqui dentro do
+      popup, porque o popup fecha ao clicar na página.
+    </div>
+    <button id="start-inspector-btn" class="rescan-btn copy-btn">🎯 Ativar inspector de elementos</button>
+    <div class="hint">Pra sair do modo inspector: tecla Esc ou botão "Fechar" no painel.</div>
   </div>
 
   <button id="rescan" class="rescan-btn hidden">Escanear novamente</button>

@@ -25,7 +25,7 @@ wp-link-scanner/
 └── popup.js        # toda a lógica
 ```
 
-Versão atual do manifest: **1.6.1**.
+Versão atual do manifest: **1.7.0**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -40,8 +40,9 @@ novas seções/funcionalidades).**
 O popup roda `runScan()` automaticamente ao abrir (`DOMContentLoaded`) e tem
 um botão "Escanear novamente". A partir da v1.6.0 o conteúdo é organizado em
 **abas** (`.tab-btn` / `.tab-panel`, trocadas via JS puro, sem lib): **Visão
-Geral**, **Segurança** e **SEO**. Dentro de SEO tem sub-abas (`.subtab-btn` /
-`.subtab-panel`): Resumo, Headers, Imagens, Links, Social.
+Geral**, **Segurança**, **SEO** e **Element Info**. Dentro de SEO tem
+sub-abas (`.subtab-btn` / `.subtab-panel`): Resumo, Headers, Imagens, Links,
+Social.
 
 Sempre visível, fora das abas: header, status do scan, ferramentas de
 domínio, botão "Escanear novamente" e botão "Copiar relatório".
@@ -135,6 +136,36 @@ Uma única chamada a `chrome.scripting.executeScript` (`extractSeoData`,
   teto ficam sem badge de status. Entra no relatório copiável quando acha
   algum quebrado
 - **Social**: tags Open Graph (`og:*`) e Twitter Card (`twitter:*`)
+
+### Aba Element Info
+
+Inspetor visual de elemento, tipo DevTools simplificado. Diferente de todas
+as outras abas: o resultado **não aparece dentro do popup**, porque o popup
+fecha ao clicar na página. Em vez disso, o botão "Ativar inspector de
+elementos" injeta `startElementInspector` (função autocontida em
+`popup.js`, via `chrome.scripting.executeScript`, world isolado por
+padrão) direto na página:
+
+- Hover destaca o elemento sob o cursor com borda verde (`document.elementFromPoint`
+  em cima do `mousemove`, capturado em `document` com `capture: true`)
+- Clique intercepta a navegação (`preventDefault` + `stopPropagation` na
+  fase de captura) e fixa a seleção
+- Painel fica num Shadow DOM (`attachShadow`) fixo no rodapé da página, com
+  tema SiteXray hardcoded em string (não tem acesso ao `popup.css`), pra não
+  vazar nem sofrer interferência do CSS do site do cliente
+- Mostra DOM (outerHTML truncado em 1500 chars), Layout (`width`/`height`
+  via `getBoundingClientRect`), Position (`display`/`float`/`position` via
+  `getComputedStyle`), Text (`font-family`/`font-size`/`line-height`),
+  breadcrumb de Ancestors e lista de Children — cada um clicável pra
+  re-inspecionar aquele nó
+  - Botão "Copiar" por bloco, com fallback pra `document.execCommand("copy")`
+    quando `navigator.clipboard` não existe (sites `http://` não são secure
+    context)
+- Sai com `Esc` ou botão "Fechar" no painel; um flag em
+  `window.__sitexrayInspectorActive` evita injeção duplicada
+- **Editar ao vivo (HTML/CSS) ficou de fora de propósito**: risco de quebrar
+  o site do cliente é maior que o resto da extensão, que é só leitura. Só
+  entra se fizer falta na prática
 
 ## Decisões de arquitetura importantes
 

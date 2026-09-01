@@ -93,6 +93,7 @@ const sitemapList = document.getElementById("sitemap-list");
 const sitemapEmpty = document.getElementById("sitemap-empty");
 const openAllSitemapBtn = document.getElementById("open-all-sitemap-btn");
 const copyReportBtn = document.getElementById("copy-report-btn");
+const startInspectorBtn = document.getElementById("start-inspector-btn");
 const techContainer = document.getElementById("tech-container");
 const techList = document.getElementById("tech-list");
 const securityContainer = document.getElementById("security-container");
@@ -452,6 +453,263 @@ async function scanSeo() {
     return result || null;
   } catch {
     return null;
+  }
+}
+
+// Injetado via chrome.scripting.executeScript (world isolado por padrão).
+// Precisa ser 100% autocontido: nada de closures sobre variáveis externas,
+// só APIs de DOM/CSSOM disponíveis em qualquer contexto de página.
+function startElementInspector() {
+  if (window.__sitexrayInspectorActive) return;
+  window.__sitexrayInspectorActive = true;
+
+  const COLORS = {
+    bg: "#0a0e12",
+    bgAlt: "#10161d",
+    border: "#1e2a35",
+    text: "#d6e4ec",
+    textDim: "#6f8494",
+    accent: "#39ff9e",
+    cyan: "#2fe0ff",
+    danger: "#ff4d5e"
+  };
+  const MONO = '"JetBrains Mono","Fira Code","SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace';
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    return Promise.resolve();
+  }
+
+  const highlight = document.createElement("div");
+  highlight.id = "sitexray-highlight-box";
+  Object.assign(highlight.style, {
+    position: "fixed",
+    pointerEvents: "none",
+    zIndex: "2147483646",
+    border: "2px solid " + COLORS.accent,
+    background: "rgba(57,255,158,0.08)",
+    borderRadius: "2px",
+    display: "none"
+  });
+  document.documentElement.appendChild(highlight);
+
+  const panelHost = document.createElement("div");
+  panelHost.id = "sitexray-inspector-root";
+  Object.assign(panelHost.style, {
+    position: "fixed",
+    left: "0",
+    right: "0",
+    bottom: "0",
+    zIndex: "2147483647",
+    height: "38vh",
+    minHeight: "260px"
+  });
+  document.documentElement.appendChild(panelHost);
+
+  const shadow = panelHost.attachShadow({ mode: "open" });
+  const style = document.createElement("style");
+  style.textContent =
+    ":host{all:initial;}" +
+    ".panel{font-family:" + MONO + ";background:" + COLORS.bg + ";color:" + COLORS.text + ";border-top:1px solid " + COLORS.border + ";height:100%;display:flex;flex-direction:column;box-shadow:0 -8px 24px rgba(0,0,0,0.5);box-sizing:border-box;}" +
+    ".topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid " + COLORS.border + ";background:" + COLORS.bgAlt + ";}" +
+    ".topbar strong{color:" + COLORS.accent + ";font-size:12px;white-space:nowrap;}" +
+    ".hint{color:" + COLORS.textDim + ";font-size:10px;}" +
+    ".close-btn{background:transparent;border:1px solid " + COLORS.border + ";color:" + COLORS.textDim + ";border-radius:4px;padding:3px 8px;cursor:pointer;font-family:" + MONO + ";font-size:10px;}" +
+    ".close-btn:hover{border-color:" + COLORS.danger + ";color:" + COLORS.danger + ";}" +
+    ".breadcrumb{padding:6px 12px;border-bottom:1px solid " + COLORS.border + ";font-size:10px;overflow-x:auto;white-space:nowrap;}" +
+    ".crumb{color:" + COLORS.cyan + ";cursor:pointer;}" +
+    ".crumb:hover{text-decoration:underline;}" +
+    ".crumb-sep{color:" + COLORS.textDim + ";}" +
+    ".body{flex:1;overflow-y:auto;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;box-sizing:border-box;}" +
+    ".block{background:" + COLORS.bgAlt + ";border:1px solid " + COLORS.border + ";border-radius:4px;padding:8px;box-sizing:border-box;}" +
+    ".block h4{margin:0 0 6px 0;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:" + COLORS.textDim + ";display:flex;justify-content:space-between;align-items:center;}" +
+    ".copy-btn{background:transparent;border:1px solid " + COLORS.accent + ";color:" + COLORS.accent + ";border-radius:3px;padding:1px 6px;cursor:pointer;font-family:" + MONO + ";font-size:9px;}" +
+    ".copy-btn:hover{background:" + COLORS.accent + ";color:#061109;}" +
+    ".block pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:10px;line-height:1.5;color:" + COLORS.text + ";max-height:120px;overflow-y:auto;}" +
+    ".block.full{grid-column:1 / -1;}" +
+    ".list-item{cursor:pointer;color:" + COLORS.cyan + ";font-size:10.5px;padding:2px 0;}" +
+    ".list-item:hover{text-decoration:underline;}" +
+    ".empty{color:" + COLORS.textDim + ";font-size:10px;font-style:italic;}";
+  shadow.appendChild(style);
+
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.innerHTML =
+    '<div class="topbar"><strong>SiteXray &gt; Element Info</strong><span class="hint">Passe o mouse e clique num elemento. Esc pra sair.</span><button class="close-btn" id="sx-close">Fechar</button></div>' +
+    '<div class="breadcrumb" id="sx-breadcrumb"></div>' +
+    '<div class="body" id="sx-body"><div class="empty" style="grid-column:1/-1;">Clique em um elemento da página pra ver os detalhes.</div></div>';
+  shadow.appendChild(panel);
+
+  function describeEl(el) {
+    if (!el || el.nodeType !== 1) return "";
+    let s = el.tagName.toLowerCase();
+    if (el.id) s += "#" + el.id;
+    if (el.classList.length) s += "." + Array.from(el.classList).slice(0, 3).join(".");
+    return s;
+  }
+
+  function onMouseMove(e) {
+    const path = e.composedPath ? e.composedPath() : [e.target];
+    if (path.indexOf(panelHost) !== -1) {
+      highlight.style.display = "none";
+      return;
+    }
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    Object.assign(highlight.style, {
+      display: "block",
+      left: rect.left + "px",
+      top: rect.top + "px",
+      width: rect.width + "px",
+      height: rect.height + "px"
+    });
+  }
+
+  function renderInfo(el) {
+    const rect = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+
+    const chain = [];
+    let cur = el;
+    while (cur) {
+      chain.unshift(cur);
+      cur = cur.parentElement;
+    }
+
+    const breadcrumbEl = shadow.getElementById("sx-breadcrumb");
+    breadcrumbEl.innerHTML = "";
+    chain.forEach((node, i) => {
+      if (i > 0) {
+        const sep = document.createElement("span");
+        sep.className = "crumb-sep";
+        sep.textContent = " > ";
+        breadcrumbEl.appendChild(sep);
+      }
+      const crumb = document.createElement("span");
+      crumb.className = "crumb";
+      crumb.textContent = describeEl(node) || node.tagName.toLowerCase();
+      crumb.addEventListener("click", () => renderInfo(node));
+      breadcrumbEl.appendChild(crumb);
+    });
+
+    const outerHtml = el.outerHTML.length > 1500 ? el.outerHTML.slice(0, 1500) + "\n..." : el.outerHTML;
+    const layoutText = "height: " + Math.round(rect.height) + "px\nwidth: " + Math.round(rect.width) + "px";
+    const positionText = "display: " + cs.display + "\nfloat: " + cs.float + "\nposition: " + cs.position;
+    const textText = "font-family: " + cs.fontFamily + "\nfont-size: " + cs.fontSize + "\nline-height: " + cs.lineHeight;
+
+    const bodyEl = shadow.getElementById("sx-body");
+    bodyEl.innerHTML = "";
+
+    [
+      { title: "DOM", text: outerHtml, full: true },
+      { title: "Layout", text: layoutText },
+      { title: "Position", text: positionText },
+      { title: "Text", text: textText }
+    ].forEach((b) => {
+      const block = document.createElement("div");
+      block.className = "block" + (b.full ? " full" : "");
+
+      const h4 = document.createElement("h4");
+      h4.textContent = b.title;
+
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.textContent = "Copiar";
+      copyBtn.addEventListener("click", () => {
+        copyText(b.text).then(() => {
+          copyBtn.textContent = "Copiado!";
+          setTimeout(() => { copyBtn.textContent = "Copiar"; }, 1200);
+        });
+      });
+      h4.appendChild(copyBtn);
+
+      const pre = document.createElement("pre");
+      pre.textContent = b.text;
+
+      block.appendChild(h4);
+      block.appendChild(pre);
+      bodyEl.appendChild(block);
+    });
+
+    [
+      { title: "Ancestors", items: chain.slice(0, -1) },
+      { title: "Children", items: Array.from(el.children) }
+    ].forEach(({ title, items }) => {
+      const block = document.createElement("div");
+      block.className = "block full";
+
+      const h4 = document.createElement("h4");
+      h4.textContent = title;
+      block.appendChild(h4);
+
+      if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Nenhum.";
+        block.appendChild(empty);
+      } else {
+        items.forEach((node) => {
+          const item = document.createElement("div");
+          item.className = "list-item";
+          item.textContent = describeEl(node) || node.tagName.toLowerCase();
+          item.addEventListener("click", () => renderInfo(node));
+          block.appendChild(item);
+        });
+      }
+      bodyEl.appendChild(block);
+    });
+  }
+
+  function onClick(e) {
+    const path = e.composedPath ? e.composedPath() : [e.target];
+    if (path.indexOf(panelHost) !== -1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (el) renderInfo(el);
+  }
+
+  function onKeyDown(e) {
+    if (e.key === "Escape") cleanup();
+  }
+
+  function cleanup() {
+    document.removeEventListener("mousemove", onMouseMove, true);
+    document.removeEventListener("click", onClick, true);
+    document.removeEventListener("keydown", onKeyDown, true);
+    highlight.remove();
+    panelHost.remove();
+    window.__sitexrayInspectorActive = false;
+  }
+
+  shadow.getElementById("sx-close").addEventListener("click", cleanup);
+
+  document.addEventListener("mousemove", onMouseMove, true);
+  document.addEventListener("click", onClick, true);
+  document.addEventListener("keydown", onKeyDown, true);
+}
+
+async function startInspector() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) return;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: startElementInspector
+    });
+  } catch {
+    // Páginas restritas (chrome://, Web Store etc.) bloqueiam injeção de script.
   }
 }
 
@@ -1009,6 +1267,8 @@ openAllBtn.addEventListener("click", () => {
 openAllSitemapBtn.addEventListener("click", () => {
   lastSitemapResults.forEach((r) => openInBackground(r.url));
 });
+
+startInspectorBtn.addEventListener("click", startInspector);
 
 copyReportBtn.addEventListener("click", async () => {
   const original = copyReportBtn.textContent;
