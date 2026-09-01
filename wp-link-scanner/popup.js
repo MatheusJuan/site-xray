@@ -1005,11 +1005,29 @@ function renderSeoImages(images) {
     li.className = "severity-" + (hasIssue ? "warning" : "info");
 
     const row = document.createElement("div");
-    row.className = "link-row";
-    const name = document.createElement("span");
-    name.textContent = (img.src || "").split("/").pop() || img.src || "(sem src)";
-    name.title = img.src || "";
-    row.appendChild(name);
+    row.className = "seo-image-row";
+
+    const thumb = document.createElement("img");
+    thumb.className = "seo-image-thumb";
+    thumb.src = img.src || "";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.addEventListener("error", () => {
+      thumb.style.visibility = "hidden";
+    });
+
+    const info = document.createElement("div");
+    info.className = "seo-image-info";
+
+    const nameLink = document.createElement("a");
+    nameLink.className = "seo-image-link";
+    nameLink.href = img.src || "#";
+    nameLink.textContent = (img.src || "").split("/").pop() || img.src || "(sem src)";
+    nameLink.title = img.src || "";
+    nameLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (img.src) openInBackground(img.src);
+    });
 
     const alt = document.createElement("div");
     alt.className = "risk-note";
@@ -1019,9 +1037,13 @@ function renderSeoImages(images) {
     title.className = "risk-note";
     title.textContent = "Title: " + (img.title || "ausente");
 
+    info.appendChild(nameLink);
+    info.appendChild(alt);
+    info.appendChild(title);
+
+    row.appendChild(thumb);
+    row.appendChild(info);
     li.appendChild(row);
-    li.appendChild(alt);
-    li.appendChild(title);
 
     (hasIssue ? seoImagesIssuesList : seoImagesOkList).appendChild(li);
   });

@@ -33,7 +33,7 @@ wp-link-scanner/
 tamanhos separados (não tinha ferramenta de resize disponível; se algum dia
 o ícone ficar borrado na barra de 16px, gerar versões dedicadas resolve).
 
-Versão atual do manifest: **1.9.1**.
+Versão atual do manifest: **1.9.2**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -170,7 +170,10 @@ Uma única chamada a `chrome.scripting.executeScript` (`extractSeoData`,
 - **Headers**: árvore de H1 a H6 na ordem em que aparecem na página,
   indentado por nível
 - **Imagens**: total, quantas sem ALT, quantas sem title; lista separada em
-  "Sem ALT ou Title" (problema) e "Completas"
+  "Sem ALT ou Title" (problema) e "Completas". Cada item mostra miniatura
+  (40x40, `object-fit: cover`, esconde sozinha via evento `error` se a
+  imagem não carregar) e nome do arquivo como link, clique abre a imagem em
+  aba de fundo igual todo link do popup
 - **Links**: todos os `<a href>`, deduplicados por (href + texto do link),
   com contagem de repetição; clique abre em aba de fundo. Depois da lista
   vir do DOM, uma segunda passada testa o status HTTP só dos links
