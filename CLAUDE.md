@@ -33,7 +33,7 @@ wp-link-scanner/
 tamanhos separados (não tinha ferramenta de resize disponível; se algum dia
 o ícone ficar borrado na barra de 16px, gerar versões dedicadas resolve).
 
-Versão atual do manifest: **1.8.0**.
+Versão atual do manifest: **1.9.0**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -101,7 +101,20 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
    - Resultado deduplicado por URL, só mostra os que responderam `ok`
    - Botão "Abrir todos" (abre em abas de fundo, ver seção UX abaixo)
 
-2. **Rastreadores e pixels na página** — usa
+2. **Subdomínios** (sempre roda, independente de ser WordPress) — busca em
+   `crt.sh` (logs públicos de certificado transparency, sem chave, sem
+   custo), consulta `?q=%.{hostname}&output=json` e extrai `name_value` de
+   cada certificado (pode ter múltiplos SANs por linha). Filtra só nomes que
+   terminam em `.{hostname}` ou são o próprio hostname, deduplica, ordena.
+   Alternativa gratuita a serviços pagos tipo Censys, já discutido e
+   descartado por exigir API key própria e custar a partir de $100/mês
+   - Lista limitada a `SUBDOMAIN_DISPLAY_CAP` (60) na tela e no "Abrir
+     todos", pra não abrir centena de abas em domínio grande; relatório
+     copiável lista todos os encontrados, sem cap
+   - Falha graciosamente pra lista vazia se o crt.sh estiver fora do ar ou
+     devagar (mesmo timeout de 6s do resto da extensão)
+
+3. **Rastreadores e pixels na página** — usa
    `chrome.scripting.executeScript` com `world: "MAIN"` na aba ativa (lê a
    página já renderizada, incluindo scripts injetados dinamicamente).
    Detecta via `window.*` globals e/ou `<script src>`: Meta Pixel, Google
@@ -110,7 +123,7 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
    Clarity, Jetpack Stats, HubSpot, Matomo/Piwik, Google reCAPTCHA, Criteo,
    Taboola, Outbrain. Badges simples, sem severidade
 
-3. **Tecnologia detectada** — fingerprint próprio (`TECH_SIGNATURES`, tipo
+4. **Tecnologia detectada** — fingerprint próprio (`TECH_SIGNATURES`, tipo
    Wappalyzer caseiro, sem dependência externa), via HTML estático da home
    e headers de resposta:
    - CMS/page builder: Shopify, Wix, Squarespace, Webflow, Drupal, Joomla
@@ -123,7 +136,7 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
    - WordPress usa a detecção própria (mais confiável, fallback em
      `/wp-json/`) e aparece nessa mesma lista quando identificado
 
-4. **Detecção de WordPress + links sensíveis** (só aparece se detectado) —
+5. **Detecção de WordPress + links sensíveis** (só aparece se detectado) —
    detecção via sinais no HTML da home (`wp-content`, `wp-includes`,
    `wp-json`, meta generator) e, como fallback, confirma direto batendo em
    `/wp-json/`. Se detectado, testa `CANDIDATE_PATHS` e classifica por

@@ -35,6 +35,7 @@ const SEVERITY_LABEL = { critical: "🔴 Crítico", warning: "🟡 Atenção", i
 
 const FETCH_TIMEOUT_MS = 6000;
 const LINK_STATUS_CAP = 40;
+const SUBDOMAIN_DISPLAY_CAP = 60;
 
 const REPO_URL = "https://github.com/MatheusJuan/site-xray";
 const REPO_MANIFEST_URL = "https://raw.githubusercontent.com/MatheusJuan/site-xray/master/wp-link-scanner/manifest.json";
@@ -96,6 +97,10 @@ const sitemapContainer = document.getElementById("sitemap-container");
 const sitemapList = document.getElementById("sitemap-list");
 const sitemapEmpty = document.getElementById("sitemap-empty");
 const openAllSitemapBtn = document.getElementById("open-all-sitemap-btn");
+const subdomainsContainer = document.getElementById("subdomains-container");
+const subdomainsList = document.getElementById("subdomains-list");
+const subdomainsEmpty = document.getElementById("subdomains-empty");
+const openAllSubdomainsBtn = document.getElementById("open-all-subdomains-btn");
 const copyReportBtn = document.getElementById("copy-report-btn");
 const startInspectorBtn = document.getElementById("start-inspector-btn");
 const devBtn = document.getElementById("dev-btn");
@@ -117,6 +122,7 @@ const seoLinksList = document.getElementById("seo-links-list");
 const seoSocialList = document.getElementById("seo-social-list");
 
 let lastSitemapResults = [];
+let lastSubdomains = [];
 
 let lastFoundResults = [];
 
@@ -1152,6 +1158,79 @@ function renderSitemapList(results) {
   sitemapEmpty.classList.add("hidden");
 }
 
+function subdomainUrl(name) {
+  return "https://" + name.replace(/^\*\./, "");
+}
+
+// crt.sh é um serviço público de logs de certificado transparency, sem
+// autenticação e sem custo. Cobre bem "quais subdomínios esse domínio tem",
+// alternativa gratuita a serviços pagos tipo Censys.
+async function discoverSubdomains(hostname) {
+  try {
+    const res = await fetchWithTimeout("https://crt.sh/?q=" + encodeURIComponent("%." + hostname) + "&output=json");
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => null);
+    if (!Array.isArray(data)) return [];
+
+    const names = new Set();
+    data.forEach((entry) => {
+      (entry.name_value || "").split("\n").forEach((raw) => {
+        const clean = raw.trim().toLowerCase();
+        if (clean && (clean === hostname || clean.endsWith("." + hostname))) {
+          names.add(clean);
+        }
+      });
+    });
+
+    return [...names].sort();
+  } catch {
+    return [];
+  }
+}
+
+function renderSubdomains(names) {
+  subdomainsList.innerHTML = "";
+  lastSubdomains = names || [];
+
+  if (lastSubdomains.length === 0) {
+    subdomainsContainer.classList.add("hidden");
+    subdomainsEmpty.classList.remove("hidden");
+    return;
+  }
+
+  lastSubdomains.slice(0, SUBDOMAIN_DISPLAY_CAP).forEach((name) => {
+    const li = document.createElement("li");
+    li.className = "severity-info";
+
+    const row = document.createElement("div");
+    row.className = "link-row";
+
+    const a = document.createElement("a");
+    const url = subdomainUrl(name);
+    a.href = url;
+    a.textContent = name;
+    a.title = url;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      openInBackground(url);
+    });
+
+    row.appendChild(a);
+    li.appendChild(row);
+    subdomainsList.appendChild(li);
+  });
+
+  if (lastSubdomains.length > SUBDOMAIN_DISPLAY_CAP) {
+    const note = document.createElement("li");
+    note.className = "empty-state";
+    note.textContent = `Mostrando ${SUBDOMAIN_DISPLAY_CAP} de ${lastSubdomains.length} encontrados.`;
+    subdomainsList.appendChild(note);
+  }
+
+  subdomainsContainer.classList.remove("hidden");
+  subdomainsEmpty.classList.add("hidden");
+}
+
 function renderLinks(results) {
   linksList.innerHTML = "";
   const found = results
@@ -1270,6 +1349,14 @@ function buildReport() {
     lines.push("Sitemap: nenhum encontrado");
   }
 
+  lines.push("");
+  if (lastSubdomains.length > 0) {
+    lines.push(`Subdomínios encontrados via crt.sh (${lastSubdomains.length}):`);
+    lastSubdomains.forEach((name) => lines.push(`- ${name}`));
+  } else {
+    lines.push("Subdomínios: nenhum encontrado via crt.sh");
+  }
+
   return lines.join("\n");
 }
 
@@ -1279,6 +1366,8 @@ async function runScan() {
   linksContainer.classList.add("hidden");
   sitemapContainer.classList.add("hidden");
   sitemapEmpty.classList.add("hidden");
+  subdomainsContainer.classList.add("hidden");
+  subdomainsEmpty.classList.add("hidden");
   trackersContainer.classList.add("hidden");
   techContainer.classList.add("hidden");
   securityContainer.classList.add("hidden");
@@ -1307,8 +1396,9 @@ async function runScan() {
   domainToolsEl.classList.remove("hidden");
   tabsEl.classList.remove("hidden");
 
-  // Trackers/pixels e SEO on-page são verificados independente do site ser WordPress ou não.
+  // Trackers/pixels, subdomínios e SEO on-page são verificados independente do site ser WordPress ou não.
   detectTrackers().then(renderTrackers);
+  discoverSubdomains(hostname).then(renderSubdomains);
   scanSeo().then(async (data) => {
     renderSeo(data);
     if (data && data.links.length > 0) {
@@ -1381,6 +1471,10 @@ openAllBtn.addEventListener("click", () => {
 
 openAllSitemapBtn.addEventListener("click", () => {
   lastSitemapResults.forEach((r) => openInBackground(r.url));
+});
+
+openAllSubdomainsBtn.addEventListener("click", () => {
+  lastSubdomains.slice(0, SUBDOMAIN_DISPLAY_CAP).forEach((name) => openInBackground(subdomainUrl(name)));
 });
 
 startInspectorBtn.addEventListener("click", startInspector);
