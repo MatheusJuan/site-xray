@@ -19,7 +19,7 @@ rodando como popup de extensão MV3.
 
 ```
 wp-link-scanner/
-├── manifest.json   # MV3, permissions: activeTab, scripting; host_permissions: http/https all_urls
+├── manifest.json   # MV3, permissions: activeTab, scripting, cookies; host_permissions: http/https all_urls
 ├── popup.html      # estrutura do popup
 ├── popup.css       # tema visual (dark "hacker", ver seção Design abaixo)
 ├── popup.js        # toda a lógica
@@ -33,7 +33,7 @@ wp-link-scanner/
 tamanhos separados (não tinha ferramenta de resize disponível; se algum dia
 o ícone ficar borrado na barra de 16px, gerar versões dedicadas resolve).
 
-Versão atual do manifest: **1.10.0**.
+Versão atual do manifest: **1.11.0**.
 
 Nome de exibição da extensão (`manifest.json` -> `name`): **SiteXray**. A
 pasta do projeto continua `wp-link-scanner/` por motivos históricos, sem
@@ -152,12 +152,33 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
 
 ### Aba Segurança
 
-Reaproveita a resposta já buscada em `fetchHomepage` (sem fetch extra):
-- Presença de `Strict-Transport-Security`, `Content-Security-Policy`,
-  `X-Frame-Options`
-- Se `http://` redireciona pra `https://` (só testa quando o site já é
-  acessado via https)
+Tudo passivo: só lê o que o site já entrega, não testa exploração. Testes
+ativos (SQL injection, IDOR, rate limit bypass, mass assignment etc.) ficam
+de fora de propósito: só cabem em site próprio ou com autorização, e
+pertencem a ferramenta de pentest, não a esta extensão.
+
+- **Headers** (reaproveita a resposta de `fetchHomepage`, sem fetch extra):
+  `Strict-Transport-Security`, `Content-Security-Policy`, `X-Frame-Options`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`
+- **HTTPS forçado**: se `http://` redireciona pra `https://` (só testa
+  quando o site já é acessado via https)
 - Cada item mostra OK/Ausente com nota (borda verde = ok, amarela = ausente)
+- **Arquivos sensíveis expostos** (`SENSITIVE_PATHS`): `.env`,
+  `.git/config`, `.git/HEAD`, `.htpasswd`, `wp-config.php.bak`,
+  `backup.sql`, `db.sql`, `backup.zip`, `phpinfo.php`, `server-status`.
+  Só conta como achado se o **conteúdo** bate com o esperado (`valid`),
+  porque SPA responde 200 com `index.html` pra qualquer rota. Lê só o
+  primeiro chunk do corpo (`readHead`) e cancela, pra não baixar um zip
+  inteiro
+- **Cookies**: usa `chrome.cookies.getAll` (permissão `cookies` no
+  manifest). Mostra nome + `Secure`/`HttpOnly`/`SameSite`, **nunca o valor**.
+  Borda amarela quando falta `Secure` ou `SameSite` é `none`/`unspecified`
+  (`HttpOnly` ausente aparece no badge mas não muda a borda, porque cookie
+  de analytics como `_ga` nunca tem)
+- **Parâmetros de redirect**: varre os links internos que a aba SEO já
+  coletou procurando `redirect`, `redirect_uri`, `next`, `url`, `return`,
+  `continue`, `goto` etc. na query. Só marca **candidato** a Open Redirect,
+  não confirma (depende de testar o endpoint)
 
 ### Aba SEO
 

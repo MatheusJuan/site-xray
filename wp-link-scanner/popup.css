@@ -460,6 +460,9 @@ body {
 #trackers-list,
 #tech-list,
 #security-list,
+#sensitive-list,
+#cookies-list,
+#redirects-list,
 #seo-headers-list,
 #seo-images-issues-list,
 #seo-images-ok-list,
@@ -477,6 +480,9 @@ body {
 #sitemap-list li,
 #subdomains-list li,
 #security-list li,
+#sensitive-list li,
+#cookies-list li,
+#redirects-list li,
 #seo-headers-list li,
 #seo-images-issues-list li,
 #seo-images-ok-list li,
@@ -491,13 +497,17 @@ body {
 
 #links-list li.severity-critical,
 #sitemap-list li.severity-critical,
-#security-list li.severity-critical {
+#security-list li.severity-critical,
+#sensitive-list li.severity-critical {
   border-left-color: var(--danger);
 }
 
 #links-list li.severity-warning,
 #sitemap-list li.severity-warning,
 #security-list li.severity-warning,
+#sensitive-list li.severity-warning,
+#cookies-list li.severity-warning,
+#redirects-list li.severity-warning,
 #seo-images-issues-list li.severity-warning {
   border-left-color: var(--warn);
 }
@@ -506,6 +516,7 @@ body {
 #sitemap-list li.severity-info,
 #subdomains-list li.severity-info,
 #security-list li.severity-info,
+#cookies-list li.severity-info,
 #seo-links-list li.severity-info,
 #seo-images-ok-list li.severity-info {
   border-left-color: var(--accent);
@@ -567,6 +578,8 @@ body {
 #links-list a,
 #sitemap-list a,
 #subdomains-list a,
+#sensitive-list a,
+#redirects-list a,
 #seo-links-list a {
   color: var(--cyan);
   text-decoration: none;
@@ -577,6 +590,8 @@ body {
 #links-list a:hover,
 #sitemap-list a:hover,
 #subdomains-list a:hover,
+#sensitive-list a:hover,
+#redirects-list a:hover,
 #seo-links-list a:hover {
   text-decoration: underline;
   color: #eafeff;

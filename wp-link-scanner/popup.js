@@ -76,8 +76,30 @@ const TECH_SIGNATURES = [
 const SECURITY_HEADERS = [
   { key: "strict-transport-security", label: "Strict-Transport-Security (HSTS)" },
   { key: "content-security-policy", label: "Content-Security-Policy" },
-  { key: "x-frame-options", label: "X-Frame-Options" }
+  { key: "x-frame-options", label: "X-Frame-Options" },
+  { key: "x-content-type-options", label: "X-Content-Type-Options" },
+  { key: "referrer-policy", label: "Referrer-Policy" },
+  { key: "permissions-policy", label: "Permissions-Policy" }
 ];
+
+// Caminhos públicos que nunca deveriam responder. `valid` olha o começo do
+// corpo, porque SPAs devolvem 200 com index.html pra qualquer rota e isso
+// daria falso positivo se só o status contasse.
+const SENSITIVE_PATHS = [
+  { path: "/.env", label: ".env", severity: "critical", risk: "Variáveis de ambiente (senhas, chaves de API) expostas.", valid: (t) => /^[A-Z][A-Z0-9_]*\s*=/m.test(t) && !/<html/i.test(t) },
+  { path: "/.git/config", label: ".git/config", severity: "critical", risk: "Repositório Git exposto, permite baixar o código-fonte.", valid: (t) => /\[core\]/i.test(t) },
+  { path: "/.git/HEAD", label: ".git/HEAD", severity: "critical", risk: "Repositório Git exposto, permite baixar o código-fonte.", valid: (t) => /^ref:\s*refs\//.test(t.trim()) },
+  { path: "/.htpasswd", label: ".htpasswd", severity: "critical", risk: "Hashes de senha do servidor expostos.", valid: (t) => /^[^:\s<]+:(\$apr1\$|\$2[aby]\$|\{SHA\}|[A-Za-z0-9./]{13})/m.test(t) },
+  { path: "/wp-config.php.bak", label: "wp-config.php.bak", severity: "critical", risk: "Backup do wp-config com credenciais do banco.", valid: (t) => /DB_NAME|DB_PASSWORD/.test(t) },
+  { path: "/backup.sql", label: "backup.sql", severity: "critical", risk: "Dump de banco de dados exposto.", valid: (t) => /CREATE TABLE|INSERT INTO|MySQL dump/i.test(t) },
+  { path: "/db.sql", label: "db.sql", severity: "critical", risk: "Dump de banco de dados exposto.", valid: (t) => /CREATE TABLE|INSERT INTO|MySQL dump/i.test(t) },
+  { path: "/backup.zip", label: "backup.zip", severity: "critical", risk: "Backup do site exposto para download.", valid: (t) => t.startsWith("PK") },
+  { path: "/phpinfo.php", label: "phpinfo.php", severity: "warning", risk: "Revela versão do PHP, módulos e caminhos do servidor.", valid: (t) => /phpinfo\(\)|PHP Version/i.test(t) },
+  { path: "/server-status", label: "server-status", severity: "warning", risk: "Painel de status do Apache exposto.", valid: (t) => /Apache Server Status/i.test(t) }
+];
+
+// Nomes de parâmetro que costumam alimentar redirecionamento.
+const REDIRECT_PARAMS = ["redirect", "redirect_uri", "redirect_url", "return", "returnurl", "return_to", "next", "url", "continue", "dest", "destination", "goto"];
 
 const statusEl = document.getElementById("status");
 const originEl = document.getElementById("site-origin");
@@ -112,6 +134,9 @@ const techContainer = document.getElementById("tech-container");
 const techList = document.getElementById("tech-list");
 const securityContainer = document.getElementById("security-container");
 const securityList = document.getElementById("security-list");
+const sensitiveList = document.getElementById("sensitive-list");
+const cookiesList = document.getElementById("cookies-list");
+const redirectsList = document.getElementById("redirects-list");
 const tabsEl = document.getElementById("tabs");
 const seoSummaryList = document.getElementById("seo-summary-list");
 const seoHeadersList = document.getElementById("seo-headers-list");
@@ -133,6 +158,9 @@ let lastFoundResults = [];
 let lastTrackers = [];
 let lastTechStack = [];
 let lastSecurityChecks = [];
+let lastSensitiveFiles = [];
+let lastCookies = [];
+let lastRedirectCandidates = [];
 let lastIsWordPress = false;
 let lastOrigin = "";
 let lastSeoData = null;
@@ -219,6 +247,70 @@ function buildSecurityChecks(headers, httpsForced) {
     note: httpsForced ? "http:// redireciona para https://." : "http:// não redireciona para https://."
   });
   return checks;
+}
+
+// Lê só o primeiro chunk do corpo (até maxBytes) e cancela o resto, pra não
+// baixar um backup.zip inteiro só pra checar a assinatura "PK".
+// ponytail: se o servidor mandar o primeiro chunk muito pequeno, a validação
+// pode dar falso negativo. Aceitável pra checagem passiva.
+async function readHead(res, maxBytes = 4096) {
+  const reader = res.body.getReader();
+  const { value } = await reader.read();
+  reader.cancel();
+  return new TextDecoder().decode(value ? value.slice(0, maxBytes) : new Uint8Array());
+}
+
+async function checkSensitiveFiles(origin) {
+  const results = await Promise.all(
+    SENSITIVE_PATHS.map(async (entry) => {
+      const url = origin + entry.path;
+      try {
+        const res = await fetchWithTimeout(url);
+        if (!res.ok) return null;
+        const text = await readHead(res);
+        return entry.valid(text) ? { ...entry, url } : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+  return results.filter(Boolean);
+}
+
+// Nunca lê nem guarda o valor do cookie, só nome e flags.
+async function getCookieFlags(origin) {
+  try {
+    const cookies = await chrome.cookies.getAll({ url: origin });
+    return cookies.map((c) => ({
+      name: c.name,
+      secure: c.secure,
+      httpOnly: c.httpOnly,
+      sameSite: c.sameSite
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function findRedirectCandidates(links, origin) {
+  const seen = new Set();
+  const found = [];
+  links.forEach((l) => {
+    try {
+      const u = new URL(l.href);
+      if (u.origin !== origin || seen.has(l.href)) return;
+      for (const key of u.searchParams.keys()) {
+        if (REDIRECT_PARAMS.includes(key.toLowerCase())) {
+          seen.add(l.href);
+          found.push({ href: l.href, param: key });
+          break;
+        }
+      }
+    } catch {
+      // href inválido, ignora
+    }
+  });
+  return found;
 }
 
 async function detectWordPress(origin, homepageHtml) {
@@ -972,6 +1064,134 @@ function renderSecurity(checks) {
   securityContainer.classList.remove("hidden");
 }
 
+function addEmptyItem(list, text) {
+  const li = document.createElement("li");
+  li.className = "empty-state";
+  li.textContent = text;
+  list.appendChild(li);
+}
+
+function renderSensitiveFiles(found) {
+  sensitiveList.innerHTML = "";
+  lastSensitiveFiles = found;
+
+  if (found.length === 0) {
+    addEmptyItem(sensitiveList, "Nenhum arquivo sensível encontrado nos caminhos testados.");
+    return;
+  }
+
+  found.forEach((f) => {
+    const li = document.createElement("li");
+    li.className = "severity-" + f.severity;
+
+    const row = document.createElement("div");
+    row.className = "link-row";
+
+    const a = document.createElement("a");
+    a.href = f.url;
+    a.textContent = f.label;
+    a.title = f.url;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      openInBackground(f.url);
+    });
+
+    const badge = document.createElement("span");
+    badge.className = "badge badge-warn";
+    badge.textContent = SEVERITY_LABEL[f.severity];
+
+    row.appendChild(a);
+    row.appendChild(badge);
+
+    const risk = document.createElement("div");
+    risk.className = "risk-note";
+    risk.textContent = f.risk;
+
+    li.appendChild(row);
+    li.appendChild(risk);
+    sensitiveList.appendChild(li);
+  });
+}
+
+function renderCookies(cookies) {
+  cookiesList.innerHTML = "";
+  lastCookies = cookies;
+
+  if (cookies.length === 0) {
+    addEmptyItem(cookiesList, "Nenhum cookie encontrado (ou sem permissão pra ler).");
+    return;
+  }
+
+  cookies.forEach((c) => {
+    const sameSiteOk = c.sameSite === "lax" || c.sameSite === "strict";
+    const hasIssue = !c.secure || !sameSiteOk;
+
+    const li = document.createElement("li");
+    li.className = "severity-" + (hasIssue ? "warning" : "info");
+
+    const row = document.createElement("div");
+    row.className = "link-row";
+
+    const name = document.createElement("span");
+    name.textContent = c.name;
+
+    const badgeGroup = document.createElement("span");
+    badgeGroup.className = "badge-group";
+    [
+      ["Secure", c.secure],
+      ["HttpOnly", c.httpOnly],
+      ["SameSite=" + c.sameSite, sameSiteOk]
+    ].forEach(([label, ok]) => {
+      const badge = document.createElement("span");
+      badge.className = "badge " + (ok ? "badge-ok" : "badge-warn");
+      badge.textContent = label;
+      badgeGroup.appendChild(badge);
+    });
+
+    row.appendChild(name);
+    row.appendChild(badgeGroup);
+    li.appendChild(row);
+    cookiesList.appendChild(li);
+  });
+}
+
+function renderRedirectCandidates(found) {
+  redirectsList.innerHTML = "";
+  lastRedirectCandidates = found;
+
+  if (found.length === 0) {
+    addEmptyItem(redirectsList, "Nenhum parâmetro de redirect encontrado nos links internos da página.");
+    return;
+  }
+
+  found.forEach((r) => {
+    const li = document.createElement("li");
+    li.className = "severity-warning";
+
+    const row = document.createElement("div");
+    row.className = "link-row";
+
+    const a = document.createElement("a");
+    a.href = r.href;
+    a.textContent = r.href;
+    a.title = r.href;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      openInBackground(r.href);
+    });
+
+    row.appendChild(a);
+
+    const note = document.createElement("div");
+    note.className = "risk-note";
+    note.textContent = "Parâmetro: " + r.param;
+
+    li.appendChild(row);
+    li.appendChild(note);
+    redirectsList.appendChild(li);
+  });
+}
+
 function addKvRow(list, label, value, missingLabel) {
   const li = document.createElement("li");
   li.className = "kv-row";
@@ -1560,6 +1780,22 @@ function buildReport() {
     lines.push(`- [${item.ok ? "OK" : "Ausente"}] ${item.label} - ${item.note}`);
   });
 
+  if (lastSensitiveFiles.length > 0) {
+    lines.push("Arquivos sensíveis expostos:");
+    lastSensitiveFiles.forEach((f) => lines.push(`- [${SEVERITY_LABEL[f.severity]}] ${f.label} - ${f.risk}`));
+  } else {
+    lines.push("Arquivos sensíveis expostos: nenhum encontrado nos caminhos testados");
+  }
+
+  const weakCookies = lastCookies.filter((c) => !c.secure || !(c.sameSite === "lax" || c.sameSite === "strict"));
+  lines.push(`Cookies: ${lastCookies.length} encontrado(s), ${weakCookies.length} sem Secure ou SameSite adequado`);
+  weakCookies.forEach((c) => lines.push(`- ${c.name} (Secure=${c.secure}, HttpOnly=${c.httpOnly}, SameSite=${c.sameSite})`));
+
+  if (lastRedirectCandidates.length > 0) {
+    lines.push(`Candidatos a Open Redirect (${lastRedirectCandidates.length}, não confirmados):`);
+    lastRedirectCandidates.forEach((r) => lines.push(`- ${r.href} (parâmetro ${r.param})`));
+  }
+
   lines.push("");
   lines.push("SEO on-page:");
   if (lastSeoData) {
@@ -1611,6 +1847,9 @@ async function runScan() {
   trackersContainer.classList.add("hidden");
   techContainer.classList.add("hidden");
   securityContainer.classList.add("hidden");
+  sensitiveList.innerHTML = "";
+  cookiesList.innerHTML = "";
+  redirectsList.innerHTML = "";
   tabsEl.classList.add("hidden");
   emptyState.classList.add("hidden");
   rescanBtn.classList.add("hidden");
@@ -1639,8 +1878,11 @@ async function runScan() {
   // Trackers/pixels, subdomínios e SEO on-page são verificados independente do site ser WordPress ou não.
   detectTrackers().then(renderTrackers);
   discoverSubdomains(hostname).then(renderSubdomains);
+  checkSensitiveFiles(origin).then(renderSensitiveFiles);
+  getCookieFlags(origin).then(renderCookies);
   scanSeo().then(async (data) => {
     renderSeo(data);
+    renderRedirectCandidates(data ? findRedirectCandidates(data.links, origin) : []);
     if (data && data.links.length > 0) {
       await checkLinkStatuses(data.links, origin);
       renderSeoLinks(data.links);

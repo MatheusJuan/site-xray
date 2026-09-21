@@ -31,9 +31,17 @@ sem abrir dez ferramentas diferentes.
   severidade (crítico / atenção / info)
 
 **Aba Segurança**
-- Presença dos headers `Strict-Transport-Security`, `Content-Security-Policy`
-  e `X-Frame-Options`
+- Presença dos headers de segurança (`Strict-Transport-Security`,
+  `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`,
+  `Referrer-Policy`, `Permissions-Policy`)
 - Se o site força redirecionamento de `http://` para `https://`
+- Arquivos sensíveis expostos (`.env`, `.git`, backups, `phpinfo.php` etc.),
+  validando o conteúdo pra evitar falso positivo em sites SPA
+- Cookies do site com as flags `Secure`, `HttpOnly` e `SameSite` (nunca
+  lê o valor)
+- Parâmetros de redirect nos links internos, como candidatos a Open Redirect
+
+Tudo passivo: a extensão não faz teste de exploração.
 
 **Aba SEO**
 - Resumo: title, description, canonical, robots meta, headings, contagem

@@ -84,6 +84,23 @@
     <div id="security-container" class="links-container hidden">
       <ul id="security-list"></ul>
     </div>
+
+    <div class="links-container">
+      <div class="section-title">Arquivos sensíveis expostos</div>
+      <ul id="sensitive-list"></ul>
+    </div>
+
+    <div class="links-container">
+      <div class="section-title">Cookies</div>
+      <div class="hint">Só nome e flags, nunca o valor. Cookies de analytics (_ga, _fbp) normalmente não têm HttpOnly, é esperado.</div>
+      <ul id="cookies-list"></ul>
+    </div>
+
+    <div class="links-container">
+      <div class="section-title">Parâmetros de redirect (candidatos a Open Redirect)</div>
+      <div class="hint">Só links internos da página atual. Marca candidato, não confirma vulnerabilidade.</div>
+      <ul id="redirects-list"></ul>
+    </div>
   </div>
 
   <div id="tab-seo" class="tab-panel hidden">
