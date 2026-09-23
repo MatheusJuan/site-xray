@@ -132,6 +132,10 @@ const devUpdateStatusEl = document.getElementById("dev-update-status");
 const devRepoLinkEl = document.getElementById("dev-repo-link");
 const techContainer = document.getElementById("tech-container");
 const techList = document.getElementById("tech-list");
+const perfContainer = document.getElementById("perf-container");
+const perfList = document.getElementById("perf-list");
+const thirdPartyContainer = document.getElementById("thirdparty-container");
+const thirdPartyList = document.getElementById("thirdparty-list");
 const securityContainer = document.getElementById("security-container");
 const securityList = document.getElementById("security-list");
 const sensitiveList = document.getElementById("sensitive-list");
@@ -164,6 +168,10 @@ let lastRedirectCandidates = [];
 let lastIsWordPress = false;
 let lastOrigin = "";
 let lastSeoData = null;
+let lastPerf = null;
+let scanId = 0;
+
+const CACHE_TTL_MS = 10 * 60 * 1000;
 
 function openInBackground(url) {
   // active: false mantém o foco no popup, então ele não fecha ao clicar.
@@ -487,6 +495,64 @@ function scanPageForTrackers() {
       }
     })
     .map((s) => s.name);
+}
+
+// Roda dentro da própria página (world: MAIN). Lê LCP/CLS/TTFB já registrados
+// (buffered) e agrupa por host os recursos de outros domínios.
+function scanPagePerformance() {
+  return new Promise((resolve) => {
+    let lcp = null;
+    let cls = 0;
+    const observers = [];
+    try {
+      const lcpObs = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        if (entries.length) lcp = entries[entries.length - 1].startTime;
+      });
+      lcpObs.observe({ type: "largest-contentful-paint", buffered: true });
+      const clsObs = new PerformanceObserver((list) => {
+        list.getEntries().forEach((e) => { if (!e.hadRecentInput) cls += e.value; });
+      });
+      clsObs.observe({ type: "layout-shift", buffered: true });
+      observers.push(lcpObs, clsObs);
+    } catch {
+      // Navegador sem suporte a esses tipos: segue só com TTFB e terceiros.
+    }
+    setTimeout(() => {
+      observers.forEach((o) => o.disconnect());
+      const nav = performance.getEntriesByType("navigation")[0];
+      const groups = {};
+      performance.getEntriesByType("resource").forEach((r) => {
+        let host;
+        try { host = new URL(r.name).hostname; } catch { return; }
+        if (host === location.hostname) return;
+        const g = groups[host] || (groups[host] = { host, requests: 0, bytes: 0 });
+        g.requests++;
+        g.bytes += r.transferSize || 0;
+      });
+      resolve({
+        lcp,
+        cls,
+        ttfb: nav ? nav.responseStart : null,
+        thirdParty: Object.values(groups).sort((a, b) => b.requests - a.requests || b.bytes - a.bytes)
+      });
+    }, 300);
+  });
+}
+
+async function scanPerformance() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) return null;
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: "MAIN",
+      func: scanPagePerformance
+    });
+    return result || null;
+  } catch {
+    return null;
+  }
 }
 
 // Roda dentro da própria página (world: MAIN), igual scanPageForTrackers,
@@ -816,7 +882,7 @@ function startElementInspector() {
 
     const outerHtml = el.outerHTML.length > 1500 ? el.outerHTML.slice(0, 1500) + "\n..." : el.outerHTML;
     const layoutText = "height: " + Math.round(rect.height) + "px\nwidth: " + Math.round(rect.width) + "px";
-    const positionText = "display: " + cs.display + "\nfloat: " + cs.float + "\nposition: " + cs.position;
+    const positionText = "display: " + cs.display + "\nfloat: " + cs.float + "\nposition: " + cs.position + "\nz-index: " + cs.zIndex + "\nopacity: " + cs.opacity;
     const textText = "font-family: " + cs.fontFamily + "\nfont-size: " + cs.fontSize + "\nline-height: " + cs.lineHeight;
 
     const bodyEl = shadow.getElementById("sx-body");
@@ -1029,6 +1095,40 @@ function renderTech(names) {
   });
   techList.appendChild(li);
   techContainer.classList.remove("hidden");
+}
+
+// Limiares "bom / precisa melhorar" oficiais do Core Web Vitals (TTFB: web.dev).
+function vitalLabel(value, good, ok) {
+  return value <= good ? "bom" : value <= ok ? "precisa melhorar" : "ruim";
+}
+
+function renderPerf(perf) {
+  perfList.innerHTML = "";
+  thirdPartyList.innerHTML = "";
+  lastPerf = perf;
+  if (!perf) {
+    perfContainer.classList.add("hidden");
+    thirdPartyContainer.classList.add("hidden");
+    return;
+  }
+
+  const rows = [];
+  if (perf.lcp !== null) rows.push(["LCP", (perf.lcp / 1000).toFixed(2) + " s (" + vitalLabel(perf.lcp, 2500, 4000) + ")"]);
+  rows.push(["CLS", perf.cls.toFixed(3) + " (" + vitalLabel(perf.cls, 0.1, 0.25) + ")"]);
+  if (perf.ttfb) rows.push(["TTFB", Math.round(perf.ttfb) + " ms (" + vitalLabel(perf.ttfb, 800, 1800) + ")"]);
+  rows.forEach(([label, value]) => addKvRow(perfList, label, value));
+  perfContainer.classList.remove("hidden");
+
+  const total = perf.thirdParty.reduce((n, g) => n + g.requests, 0);
+  if (total === 0) {
+    thirdPartyContainer.classList.add("hidden");
+    return;
+  }
+  addKvRow(thirdPartyList, "Total", total + " requisições em " + perf.thirdParty.length + " domínios");
+  perf.thirdParty.slice(0, 10).forEach((g) => {
+    addKvRow(thirdPartyList, g.host, g.requests + " req" + (g.bytes ? " · " + (g.bytes / 1024).toFixed(0) + " KB" : ""));
+  });
+  thirdPartyContainer.classList.remove("hidden");
 }
 
 function renderSecurity(checks) {
@@ -1774,6 +1874,16 @@ function buildReport() {
       : "Rastreadores/pixels: nenhum encontrado"
   );
 
+  if (lastPerf) {
+    lines.push("");
+    lines.push("Performance (Web Vitals):");
+    if (lastPerf.lcp !== null) lines.push(`- LCP: ${(lastPerf.lcp / 1000).toFixed(2)} s (${vitalLabel(lastPerf.lcp, 2500, 4000)})`);
+    lines.push(`- CLS: ${lastPerf.cls.toFixed(3)} (${vitalLabel(lastPerf.cls, 0.1, 0.25)})`);
+    if (lastPerf.ttfb) lines.push(`- TTFB: ${Math.round(lastPerf.ttfb)} ms (${vitalLabel(lastPerf.ttfb, 800, 1800)})`);
+    const thirdTotal = lastPerf.thirdParty.reduce((n, g) => n + g.requests, 0);
+    lines.push(`- Requisições de terceiros: ${thirdTotal} em ${lastPerf.thirdParty.length} domínios`);
+  }
+
   lines.push("");
   lines.push("Segurança:");
   lastSecurityChecks.forEach((item) => {
@@ -1836,9 +1946,57 @@ function buildReport() {
   return lines.join("\n");
 }
 
+const cacheKey = (origin) => "sitexray:" + origin;
+
+// Cache por origem em chrome.storage.session: some ao fechar o navegador,
+// então não precisa de limpeza. Falha (cota, contexto sem acesso) é ignorada.
+async function saveCache(origin) {
+  try {
+    await chrome.storage.session.set({
+      [cacheKey(origin)]: {
+        ts: Date.now(),
+        trackers: lastTrackers, tech: lastTechStack, security: lastSecurityChecks,
+        sensitive: lastSensitiveFiles, cookies: lastCookies, redirects: lastRedirectCandidates,
+        seo: lastSeoData, sitemaps: lastSitemapResults, subdomains: lastSubdomains,
+        perf: lastPerf, isWordPress: lastIsWordPress, wpLinks: lastFoundResults
+      }
+    });
+  } catch {}
+}
+
+// Mostra o último resultado da origem na hora; o scan real sobrescreve em seguida.
+async function restoreCache(origin) {
+  try {
+    const key = cacheKey(origin);
+    const c = (await chrome.storage.session.get(key))[key];
+    if (!c || Date.now() - c.ts > CACHE_TTL_MS) return 0;
+    renderTrackers(c.trackers);
+    renderTech(c.tech);
+    if (c.security.length) renderSecurity(c.security);
+    renderSensitiveFiles(c.sensitive);
+    renderCookies(c.cookies);
+    renderRedirectCandidates(c.redirects);
+    if (c.seo) renderSeo(c.seo);
+    if (c.sitemaps.length) renderSitemapList(c.sitemaps);
+    if (c.subdomains.length) renderSubdomains(c.subdomains);
+    renderPerf(c.perf);
+    lastIsWordPress = c.isWordPress;
+    if (c.isWordPress && c.wpLinks.length) renderLinks(c.wpLinks);
+    return Math.max(1, Math.round((Date.now() - c.ts) / 60000));
+  } catch {
+    return 0;
+  }
+}
+
 async function runScan() {
+  const id = ++scanId;
+  const current = () => id === scanId;
+  const guard = (fn) => (v) => { if (current()) fn(v); };
+
   statusEl.className = "status status-checking";
   statusEl.textContent = "Verificando o site...";
+  perfContainer.classList.add("hidden");
+  thirdPartyContainer.classList.add("hidden");
   linksContainer.classList.add("hidden");
   sitemapContainer.classList.add("hidden");
   sitemapEmpty.classList.add("hidden");
@@ -1856,6 +2014,7 @@ async function runScan() {
   copyReportBtn.classList.add("hidden");
 
   const origin = await getActiveTabOrigin();
+  if (!current()) return;
   if (!origin) {
     statusEl.className = "status status-not-found";
     statusEl.textContent = "Não foi possível ler a aba atual (URL inválida).";
@@ -1876,28 +2035,46 @@ async function runScan() {
   tabsEl.classList.remove("hidden");
 
   // Trackers/pixels, subdomínios e SEO on-page são verificados independente do site ser WordPress ou não.
-  detectTrackers().then(renderTrackers);
-  discoverSubdomains(hostname).then(renderSubdomains);
-  checkSensitiveFiles(origin).then(renderSensitiveFiles);
-  getCookieFlags(origin).then(renderCookies);
-  scanSeo().then(async (data) => {
-    renderSeo(data);
-    renderRedirectCandidates(data ? findRedirectCandidates(data.links, origin) : []);
-    if (data && data.links.length > 0) {
-      await checkLinkStatuses(data.links, origin);
-      renderSeoLinks(data.links);
-    }
-  });
+  const cached = await restoreCache(origin);
+  if (!current()) return;
+  if (cached) statusEl.textContent = `Verificando o site... (mostrando resultado salvo há ${cached} min)`;
+
+  const tasks = [
+    detectTrackers().then(guard(renderTrackers)),
+    discoverSubdomains(hostname).then(guard(renderSubdomains)),
+    checkSensitiveFiles(origin).then(guard(renderSensitiveFiles)),
+    getCookieFlags(origin).then(guard(renderCookies)),
+    scanPerformance().then(guard(renderPerf)),
+    scanSeo().then(async (data) => {
+      if (!current()) return;
+      renderSeo(data);
+      renderRedirectCandidates(data ? findRedirectCandidates(data.links, origin) : []);
+      if (data && data.links.length > 0) {
+        await checkLinkStatuses(data.links, origin);
+        if (current()) renderSeoLinks(data.links);
+      }
+    })
+  ];
+
+  const finish = async () => {
+    await Promise.allSettled(tasks);
+    if (!current()) return;
+    await saveCache(origin);
+    rescanBtn.classList.remove("hidden");
+    copyReportBtn.classList.remove("hidden");
+  };
 
   const { html: homepageHtml, headers } = await fetchHomepage(origin);
+  if (!current()) return;
 
   // Sitemap também é independente: roda mesmo que a detecção de WP falhe.
-  discoverSitemaps(origin, homepageHtml).then(renderSitemapList);
+  tasks.push(discoverSitemaps(origin, homepageHtml).then(guard(renderSitemapList)));
 
   const [isWordPress, httpsForced] = await Promise.all([
     detectWordPress(origin, homepageHtml),
     checkHttpsForced(origin)
   ]);
+  if (!current()) return;
   lastIsWordPress = isWordPress;
 
   const techStack = detectTechStack(homepageHtml, headers);
@@ -1908,8 +2085,8 @@ async function runScan() {
   if (!isWordPress) {
     statusEl.className = "status status-not-found";
     statusEl.textContent = "Este site não parece ser WordPress.";
-    rescanBtn.classList.remove("hidden");
-    copyReportBtn.classList.remove("hidden");
+    lastFoundResults = [];
+    await finish();
     return;
   }
 
@@ -1917,12 +2094,11 @@ async function runScan() {
   statusEl.textContent = "WordPress detectado. Checando links públicos...";
 
   const pathResults = await Promise.all(CANDIDATE_PATHS.map((entry) => checkPath(origin, entry)));
-  const results = dedupeByUrl(pathResults);
+  if (!current()) return;
 
   statusEl.textContent = "WordPress detectado.";
-  renderLinks(results);
-  rescanBtn.classList.remove("hidden");
-  copyReportBtn.classList.remove("hidden");
+  renderLinks(dedupeByUrl(pathResults));
+  await finish();
 }
 
 rescanBtn.addEventListener("click", runScan);
@@ -2030,4 +2206,15 @@ document.querySelectorAll(".subtab-btn").forEach((btn) => {
 document.addEventListener("DOMContentLoaded", () => {
   runScan();
   checkForUpdate();
+});
+
+// Side panel fica aberto entre abas: refaz o scan ao trocar de aba ou navegar.
+let rescanTimer;
+const rescanSoon = () => {
+  clearTimeout(rescanTimer);
+  rescanTimer = setTimeout(runScan, 400);
+};
+chrome.tabs.onActivated.addListener(rescanSoon);
+chrome.tabs.onUpdated.addListener((_id, info, tab) => {
+  if (info.status === "complete" && tab.active) rescanSoon();
 });

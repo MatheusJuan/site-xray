@@ -20,7 +20,7 @@
 }
 
 body {
-  width: 420px;
+  min-width: 320px;
   margin: 0;
   padding: 14px;
   font-family: var(--mono);
@@ -459,6 +459,8 @@ body {
 #subdomains-list,
 #trackers-list,
 #tech-list,
+#perf-list,
+#thirdparty-list,
 #security-list,
 #sensitive-list,
 #cookies-list,

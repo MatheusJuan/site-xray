@@ -66,12 +66,24 @@
       <ul id="tech-list"></ul>
     </div>
 
+    <div id="perf-container" class="links-container hidden">
+      <div class="section-title">Performance (Web Vitals)</div>
+      <div class="hint">Medido na página já carregada. Sem INP (precisa de interação).</div>
+      <ul id="perf-list" class="kv-list"></ul>
+    </div>
+
+    <div id="thirdparty-container" class="links-container hidden">
+      <div class="section-title">Recursos de terceiros (impacto)</div>
+      <div class="hint">Requisições a outros domínios. Tamanho só aparece quando o servidor libera (Timing-Allow-Origin).</div>
+      <ul id="thirdparty-list" class="kv-list"></ul>
+    </div>
+
     <div id="links-container" class="links-container hidden">
       <div class="section-title-row">
         <span class="section-title">Links encontrados</span>
         <button id="open-all-btn" class="open-all-btn">Abrir todos</button>
       </div>
-      <div class="hint">Os links abrem em segundo plano, sem fechar este popup.</div>
+      <div class="hint">Os links abrem em segundo plano, sem fechar este painel.</div>
       <ul id="links-list"></ul>
     </div>
 
@@ -163,7 +175,7 @@
       Ativa um inspetor visual na página atual: passe o mouse pra destacar o
       elemento e clique pra ver DOM, layout, posição e texto. O painel
       aparece embutido na própria página (rodapé fixo), não aqui dentro do
-      popup, porque o popup fecha ao clicar na página.
+      painel.
     </div>
     <button id="start-inspector-btn" class="rescan-btn copy-btn">🎯 Ativar inspector de elementos</button>
     <div class="hint">Pra sair do modo inspector: tecla Esc ou botão "Fechar" no painel.</div>

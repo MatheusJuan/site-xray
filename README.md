@@ -74,7 +74,7 @@ permissão antiga.
 
 1. Abra o site que quer analisar
 2. Clique no ícone da extensão na barra do navegador
-3. O scan roda sozinho assim que o popup abre
+3. O scan roda sozinho ao abrir o painel lateral e refaz ao trocar de aba ou navegar
 4. Navegue pelas abas (Visão Geral, Segurança, SEO, Element Info)
 5. Clique em "Copiar relatório" pra levar o resumo pra uma proposta
 
