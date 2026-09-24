@@ -62,7 +62,7 @@ extensão-chrome-analise/
         └── logo.png        # logomarca "SITExRAY" do header, 1359x205 RGBA
 ```
 
-Versão atual do manifest: **1.15.0**.
+Versão atual do manifest: **1.15.1**.
 
 Nome de exibição (`manifest.json` `name`): **SiteXray**. A pasta continua
 `wp-link-scanner/` por motivos históricos (era o nome original, "WP Link
@@ -111,6 +111,7 @@ extensão instalada. Mudança sem bump de versão fica invisível pra esse aviso
 | 1.14.0 | pendente | PageSpeed Insights sob demanda, badge no ícone, histórico por domínio, plugins/tema WP, mixed content, robots.txt, +tech signatures, export `.html` |
 | 1.14.1 | pendente | HSTS via probe same-origin na página (fetch da extensão escondia o header); histórico não duplica em rescan em menos de 2 min |
 | 1.15.0 | pendente | MX/SPF/DMARC via DoH, análise de CSP, integrações (pagamentos/chat/CRM), e-mails + links LGPD, bots de IA no robots + llms.txt, headers COOP/CORP/COEP (sem descontar da nota) |
+| 1.15.1 | pendente | Visual: seções em cards com ícone, abas em pílula fixas, ferramentas de domínio em grade, status com indicador, hover com brilho |
 
 (`980ac78` adicionou o `README.md` sem mudar a versão.)
 
