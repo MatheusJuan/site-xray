@@ -56,6 +56,12 @@
     </div>
     <div id="subdomains-empty" class="empty-state hidden">Nenhum subdomínio encontrado via crt.sh.</div>
 
+    <div id="dns-container" class="links-container hidden">
+      <div class="section-title">E-mail (MX, SPF, DMARC)</div>
+      <div class="hint">DNS-over-HTTPS (dns.google). Mostra se o domínio está pronto pra enviar e receber e-mail.</div>
+      <ul id="dns-list" class="kv-list"></ul>
+    </div>
+
     <div id="trackers-container" class="links-container hidden">
       <div class="section-title">Rastreadores e pixels na página</div>
       <ul id="trackers-list"></ul>
@@ -64,6 +70,46 @@
     <div id="tech-container" class="links-container hidden">
       <div class="section-title">Tecnologia detectada</div>
       <ul id="tech-list"></ul>
+    </div>
+
+    <div id="integrations-container" class="links-container hidden">
+      <div class="section-title">Integrações e widgets</div>
+      <div class="hint">Pagamentos, chat, CRM, maps e afins detectados na home.</div>
+      <ul id="integrations-list"></ul>
+    </div>
+
+    <div id="contact-container" class="links-container hidden">
+      <div class="section-title">Contato e privacidade</div>
+      <div class="hint">E-mails na página e links de política/termos (LGPD).</div>
+      <ul id="contact-list" class="kv-list"></ul>
+    </div>
+
+    <div id="plugins-container" class="links-container hidden">
+      <div class="section-title">Tema e plugins WordPress</div>
+      <ul id="plugins-list"></ul>
+    </div>
+
+    <div id="robots-container" class="links-container hidden">
+      <div class="section-title">robots.txt</div>
+      <ul id="robots-list" class="kv-list"></ul>
+    </div>
+
+    <div id="ai-container" class="links-container hidden">
+      <div class="section-title">IA e llms.txt</div>
+      <div class="hint">Bots de IA no robots.txt e presença de /llms.txt (SEO para LLM).</div>
+      <ul id="ai-list" class="kv-list"></ul>
+    </div>
+
+    <div id="pagespeed-container" class="links-container hidden">
+      <div class="section-title">PageSpeed Insights</div>
+      <div class="hint">API do Google. Leva 10–30s. Roda só no botão.</div>
+      <button id="run-pagespeed-btn" class="open-all-btn" style="width:100%;margin-bottom:8px;">🚀 Rodar PageSpeed (mobile + desktop)</button>
+      <ul id="pagespeed-list" class="kv-list"></ul>
+    </div>
+
+    <div id="history-container" class="links-container hidden">
+      <div class="section-title">Histórico deste domínio</div>
+      <ul id="history-list"></ul>
     </div>
 
     <div id="perf-container" class="links-container hidden">
@@ -93,6 +139,14 @@
   </div>
 
   <div id="tab-seguranca" class="tab-panel hidden">
+    <div id="security-grade" class="security-grade hidden">
+      <span id="grade-letter" class="grade-letter">-</span>
+      <div class="grade-meta">
+        <div id="grade-label" class="grade-label">-</div>
+        <div id="grade-score" class="grade-score">-</div>
+      </div>
+    </div>
+
     <div id="security-container" class="links-container hidden">
       <ul id="security-list"></ul>
     </div>
@@ -112,6 +166,11 @@
       <div class="section-title">Parâmetros de redirect (candidatos a Open Redirect)</div>
       <div class="hint">Só links internos da página atual. Marca candidato, não confirma vulnerabilidade.</div>
       <ul id="redirects-list"></ul>
+    </div>
+
+    <div id="mixed-container" class="links-container hidden">
+      <div class="section-title">Mixed content (http em https)</div>
+      <ul id="mixed-list"></ul>
     </div>
   </div>
 
@@ -182,7 +241,11 @@
   </div>
 
   <button id="rescan" class="rescan-btn hidden">Escanear novamente</button>
-  <button id="copy-report-btn" class="rescan-btn copy-btn hidden">📋 Copiar relatório</button>
+  <div class="report-actions hidden" id="report-actions">
+    <button id="copy-report-btn" class="rescan-btn copy-btn">📋 Copiar</button>
+    <button id="export-report-btn" class="rescan-btn copy-btn">⬇️ .md</button>
+    <button id="export-html-btn" class="rescan-btn copy-btn">⬇️ .html</button>
+  </div>
 
   <script src="popup.js"></script>
 </body>

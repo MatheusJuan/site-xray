@@ -62,7 +62,7 @@ extensão-chrome-analise/
         └── logo.png        # logomarca "SITExRAY" do header, 1359x205 RGBA
 ```
 
-Versão atual do manifest: **1.12.0**.
+Versão atual do manifest: **1.15.0**.
 
 Nome de exibição (`manifest.json` `name`): **SiteXray**. A pasta continua
 `wp-link-scanner/` por motivos históricos (era o nome original, "WP Link
@@ -107,6 +107,10 @@ extensão instalada. Mudança sem bump de versão fica invisível pra esse aviso
 | 1.10.0 | `4cab53c` | Tags `<head>`, dados estruturados (JSON-LD), favicon com download |
 | 1.11.0 | `6078ab8` | Checagens passivas de segurança: arquivos sensíveis, cookies, redirects, mais headers |
 | 1.12.0 | pendente | Side panel (troca de aba refaz o scan) e cache por origem em `chrome.storage.session` (10 min), Web Vitals (LCP/CLS/TTFB), impacto de recursos de terceiros, z-index/opacity no inspetor |
+| 1.13.0 | pendente | Fix HSTS em redirects (mescla headers da cadeia), nota de segurança A–F, exportar relatório `.md` |
+| 1.14.0 | pendente | PageSpeed Insights sob demanda, badge no ícone, histórico por domínio, plugins/tema WP, mixed content, robots.txt, +tech signatures, export `.html` |
+| 1.14.1 | pendente | HSTS via probe same-origin na página (fetch da extensão escondia o header); histórico não duplica em rescan em menos de 2 min |
+| 1.15.0 | pendente | MX/SPF/DMARC via DoH, análise de CSP, integrações (pagamentos/chat/CRM), e-mails + links LGPD, bots de IA no robots + llms.txt, headers COOP/CORP/COEP (sem descontar da nota) |
 
 (`980ac78` adicionou o `README.md` sem mudar a versão.)
 
@@ -122,8 +126,8 @@ um botão "Escanear novamente". O conteúdo é organizado em **abas**
 Dados Estruturados.
 
 Sempre visível, fora das abas: header (logo + botão Dev), status do scan,
-ferramentas de domínio, barra de abas, botão "Escanear novamente" e botão
-"Copiar relatório".
+ferramentas de domínio, barra de abas, botão "Escanear novamente" e botões
+de relatório (Copiar, `.md`, `.html`).
 
 Todo o conteúdo dentro das abas é **independente entre si**. Nenhuma seção
 depende da detecção de WordPress ter dado certo, exceto os links sensíveis
@@ -442,7 +446,9 @@ fecha ao clicar na página. O botão "Ativar inspector de elementos" injeta
   `lastRedirectCandidates`, `lastIsWordPress`, `lastOrigin`, `lastSeoData`),
   usadas por `buildReport()` e pelos botões "Abrir todos".
 - **Rede/utilitários**: `openInBackground`, `fetchWithTimeout`,
-  `getActiveTabOrigin`, `fetchHomepage` (devolve `{ html, headers }`),
+   `getActiveTabOrigin`, `fetchHomepage` (devolve `{ html, headers }`),
+   `probePageSecurityHeaders` (executeScript same-origin pra HSTS que o
+   fetch da extensão não expõe),
   `dedupeByUrl`, `compareVersions`, `checkForUpdate`.
 - **Detecção/coleta**: `detectTechStack`, `checkHttpsForced`,
   `buildSecurityChecks`, `readHead`, `checkSensitiveFiles`,
@@ -523,26 +529,16 @@ corrige. Vale testar em sites variados (WordPress, Shopify, SPA, um `http://`).
 
 Ordenadas por impacto x esforço:
 
-- **Performance via PageSpeed Insights** (API do Google, funciona sem chave
-  em volume baixo): nota mobile/desktop, LCP, CLS. Rodaria sob demanda num
-  botão (leva 10 a 30s), não no scan automático. Maior lacuna pra proposta
-  de site, hoje a extensão não diz nada de velocidade.
-- **Não perder o scan ao fechar o popup**: guardar o último resultado por
-  aba em `chrome.storage.session`, ou migrar pra **side panel**
-  (`chrome.sidePanel`), que fica aberto enquanto se navega. O side panel é
-  melhor mas reescreve o layout.
-- **Exportar o relatório em arquivo** (`.md`/`.html` com logo, ou JSON/CSV),
-  além de só copiar texto.
+- ~~Performance via PageSpeed Insights~~ — **feito (v1.14.0)**, botão sob demanda.
+- ~~Exportar relatório em arquivo~~ — **feito (v1.13/1.14)**: `.md` e `.html`.
+- ~~Histórico por domínio~~ — **feito (v1.14.0)**, `chrome.storage.local`, 20 entradas.
+- ~~Badge no ícone com contagem~~ — **feito (v1.14.0)**, `chrome.action.setBadgeText` após scan.
+- ~~Detecção de plugins/tema WP~~ — **feito (v1.14.0)**, paths da home.
+- ~~Mixed content~~ / ~~robots.txt~~ / ~~mais tech signatures~~ — **feito (v1.14.0)**.
+- ~~Não perder o scan ao fechar o popup~~ — **feito**: side panel + `chrome.storage.session`.
 - Gerar o ícone em tamanhos dedicados (16/32/48) se o de 16px ficar borrado.
-- Histórico por domínio via `chrome.storage`, pra comparar scans de datas
-  diferentes.
-- Badge no ícone da toolbar com contagem de itens críticos/atenção, sem
-  abrir o popup.
 - Rodar scan automático em background (`background.js` + `setBadgeText`) em
-  vez de só sob demanda.
-- Detecção de plugins e tema ativo do WordPress (via caminhos
-  `wp-content/plugins/<nome>/` carregados na home). Baixa prioridade: só
-  ajuda a fatia WordPress da base de clientes.
+  vez de só sob demanda (badge hoje só atualiza com o side panel aberto).
 - Editar elemento ao vivo no inspetor (ver risco na seção Element Info).
 
 ## Como testar localmente

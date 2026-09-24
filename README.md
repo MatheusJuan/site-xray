@@ -15,26 +15,42 @@ sem abrir dez ferramentas diferentes.
 **Sempre visível**
 - Ferramentas de domínio: WHOIS (via registro.br), DNS Checker, sitemap
   padrão e busca no Google com `site:`
-- Botão "Copiar relatório": monta um resumo em texto com tudo que foi
-  encontrado, pronto pra colar num orçamento ou proposta
+- Botões de relatório: Copiar texto, baixar `.md` e baixar `.html` (com logo)
+- Badge no ícone da extensão com a contagem de achados críticos/atenção
 - Botão "Dev": mostra a versão instalada, link do repositório e avisa
   quando existe uma versão mais nova disponível
 
 **Aba Visão Geral**
 - Sitemap, descoberto via `robots.txt`, tag `<link rel="sitemap">` e
   caminhos padrão
+- robots.txt: Disallow/Allow, Host e Crawl-delay
 - Rastreadores e pixels de marketing (Meta Pixel, Google Analytics, GTM,
   TikTok Pixel, Hotjar, Clarity e outros)
 - Tecnologia detectada: CMS/page builder, e-commerce, framework JS, CSS
-  framework, CDN/hosting
+  framework, CDN/hosting, libs (jQuery, htmx, Alpine…)
+- Tema e plugins WordPress detectados pelos caminhos da home
+- Integrações e widgets: pagamentos (Mercado Pago, Stripe, PagBank…),
+  chat (WhatsApp, Tidio, Tawk…), CRM, maps, captcha
+- Contato e privacidade: e-mails na página e links de política/termos (LGPD)
+- E-mail (MX, SPF, DMARC) via DNS-over-HTTPS — sem terminal
+- Bots de IA no robots.txt e presença de /llms.txt
+- PageSpeed Insights sob demanda (nota mobile/desktop do Google, 10–30s)
+- Histórico de scans do domínio (compara datas; não duplica se o scan
+  repetir em menos de 2 min com a mesma nota)
 - Detecção de WordPress, com lista de links sensíveis classificados por
   severidade (crítico / atenção / info)
 
 **Aba Segurança**
+- Nota de segurança A–F (0–100) no topo da aba
 - Presença dos headers de segurança (`Strict-Transport-Security`,
   `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`,
-  `Referrer-Policy`, `Permissions-Policy`)
+  `Referrer-Policy`, `Permissions-Policy`) — inclui headers vindos só em
+  redirects (HSTS em 307 etc.) e uma sonda same-origin na própria página
+  quando o fetch da extensão esconde o HSTS
+- Qualidade da CSP (unsafe-inline/eval, wildcard em script-src)
+- Headers avançados COOP/CORP/COEP (recomendados, sem descontar da nota)
 - Se o site força redirecionamento de `http://` para `https://`
+- Mixed content: recursos `http://` em página `https://`
 - Arquivos sensíveis expostos (`.env`, `.git`, backups, `phpinfo.php` etc.),
   validando o conteúdo pra evitar falso positivo em sites SPA
 - Cookies do site com as flags `Secure`, `HttpOnly` e `SameSite` (nunca
@@ -76,7 +92,7 @@ permissão antiga.
 2. Clique no ícone da extensão na barra do navegador
 3. O scan roda sozinho ao abrir o painel lateral e refaz ao trocar de aba ou navegar
 4. Navegue pelas abas (Visão Geral, Segurança, SEO, Element Info)
-5. Clique em "Copiar relatório" pra levar o resumo pra uma proposta
+5. Use os botões no rodapé: Copiar, baixar `.md` ou baixar `.html`
 
 ## Stack
 

@@ -459,12 +459,21 @@ body {
 #subdomains-list,
 #trackers-list,
 #tech-list,
+#plugins-list,
+#mixed-list,
+#history-list,
 #perf-list,
 #thirdparty-list,
 #security-list,
 #sensitive-list,
 #cookies-list,
 #redirects-list,
+#robots-list,
+#pagespeed-list,
+#dns-list,
+#integrations-list,
+#contact-list,
+#ai-list,
 #seo-headers-list,
 #seo-images-issues-list,
 #seo-images-ok-list,
@@ -485,6 +494,10 @@ body {
 #sensitive-list li,
 #cookies-list li,
 #redirects-list li,
+#plugins-list li,
+#mixed-list li,
+#history-list li,
+#integrations-list li,
 #seo-headers-list li,
 #seo-images-issues-list li,
 #seo-images-ok-list li,
@@ -510,6 +523,7 @@ body {
 #sensitive-list li.severity-warning,
 #cookies-list li.severity-warning,
 #redirects-list li.severity-warning,
+#mixed-list li.severity-warning,
 #seo-images-issues-list li.severity-warning {
   border-left-color: var(--warn);
 }
@@ -519,6 +533,8 @@ body {
 #subdomains-list li.severity-info,
 #security-list li.severity-info,
 #cookies-list li.severity-info,
+#plugins-list li.severity-info,
+#history-list li.severity-info,
 #seo-links-list li.severity-info,
 #seo-images-ok-list li.severity-info {
   border-left-color: var(--accent);
@@ -672,4 +688,82 @@ body {
 .copy-btn:hover {
   background: var(--cyan);
   color: #04222b;
+}
+
+.security-grade {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.grade-letter {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.grade-a {
+  color: var(--accent);
+  border-color: rgba(57, 255, 158, 0.5);
+  background: var(--accent-dim);
+}
+
+.grade-b {
+  color: var(--cyan);
+  border-color: rgba(47, 224, 255, 0.5);
+  background: var(--cyan-dim);
+}
+
+.grade-c {
+  color: var(--warn);
+  border-color: rgba(255, 204, 77, 0.5);
+  background: var(--warn-dim);
+}
+
+.grade-d,
+.grade-f {
+  color: var(--danger);
+  border-color: rgba(255, 77, 94, 0.5);
+  background: var(--danger-dim);
+}
+
+.grade-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.grade-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.grade-score {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.report-actions .rescan-btn {
+  flex: 1;
+  margin-top: 10px;
 }

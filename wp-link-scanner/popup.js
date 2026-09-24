@@ -56,6 +56,13 @@ const TECH_SIGNATURES = [
   { name: "Nuxt.js", test: ({ html }) => /__NUXT__/i.test(html || "") },
   { name: "Angular", test: ({ html }) => /ng-version=/i.test(html || "") },
   { name: "Vue.js", test: ({ html }) => /data-server-rendered="true"|cdn\.jsdelivr\.net\/npm\/vue|unpkg\.com\/vue/i.test(html || "") },
+  { name: "React", test: ({ html }) => /data-reactroot|data-react-|__REACT_DEVTOOLS|react-dom(?:\.production)?(?:\.min)?\.js/i.test(html || "") },
+  { name: "Svelte", test: ({ html }) => /__svelte|svelte-[a-z0-9]{6}|\/_app\/immutable\//i.test(html || "") },
+  { name: "Astro", test: ({ html }) => /astro-island|data-astro/i.test(html || "") },
+  { name: "Laravel", test: ({ html }) => /laravel_session|XSRF-TOKEN|content="Laravel/i.test(html || "") },
+  { name: "Django", test: ({ html, headers }) => /csrfmiddlewaretoken/i.test(html || "") || /csrftoken/i.test(headers["set-cookie"] || "") },
+  { name: "Ruby on Rails", test: ({ html }) => /csrf-token[^>]+name="csrf-token"|rails-ujs/i.test(html || "") },
+  { name: "Livewire", test: ({ html }) => /livewire\.js|wire:id/i.test(html || "") },
 
   // E-commerce
   { name: "WooCommerce", test: ({ html }) => /woocommerce/i.test(html || "") },
@@ -64,22 +71,71 @@ const TECH_SIGNATURES = [
 
   // CSS framework
   { name: "Bootstrap", test: ({ html }) => /bootstrap(\.min)?\.css|bootstrap\.bundle/i.test(html || "") },
+  { name: "Tailwind CSS", test: ({ html }) => /tailwind(?:\.min)?\.css|cdn\.tailwindcss\.com/i.test(html || "") },
+  { name: "Bulma", test: ({ html }) => /bulma(?:\.min)?\.css/i.test(html || "") },
+  { name: "Foundation", test: ({ html }) => /foundation(?:\.min)?\.css/i.test(html || "") },
+
+  // JS libs comuns
+  { name: "jQuery", test: ({ html }) => /jquery(?:[-.][\d.]+)?(?:\.min)?\.js|\/jquery-/i.test(html || "") },
+  { name: "Alpine.js", test: ({ html }) => /alpinejs(?:\.min)?\.js|x-data=/i.test(html || "") },
+  { name: "htmx", test: ({ html }) => /htmx(?:\.min)?\.js|hx-get=/i.test(html || "") },
+  { name: "Three.js", test: ({ html }) => /three(?:\.min)?\.js|THREE\./i.test(html || "") },
 
   // CDN / hosting
   { name: "Cloudflare", test: ({ headers }) => !!headers["cf-ray"] || /cloudflare/i.test(headers["server"] || "") },
   { name: "Vercel", test: ({ headers }) => !!headers["x-vercel-id"] || /vercel/i.test(headers["server"] || "") },
   { name: "Netlify", test: ({ headers }) => !!headers["x-nf-request-id"] || /netlify/i.test(headers["server"] || "") },
   { name: "Fastly", test: ({ headers }) => !!headers["x-fastly-request-id"] || /fastly/i.test(headers["x-served-by"] || "") },
-  { name: "Amazon CloudFront", test: ({ headers }) => !!headers["x-amz-cf-id"] || /cloudfront/i.test(headers["via"] || "") }
+  { name: "Amazon CloudFront", test: ({ headers }) => !!headers["x-amz-cf-id"] || /cloudfront/i.test(headers["via"] || "") },
+  { name: "Hostinger", test: ({ headers }) => /hostinger/i.test(headers["server"] || headers["x-powered-by"] || "") },
+  { name: "SiteGround", test: ({ headers }) => /siteground|sg-cdn/i.test(headers["server"] || headers["via"] || "") }
 ];
 
 const SECURITY_HEADERS = [
-  { key: "strict-transport-security", label: "Strict-Transport-Security (HSTS)" },
-  { key: "content-security-policy", label: "Content-Security-Policy" },
-  { key: "x-frame-options", label: "X-Frame-Options" },
-  { key: "x-content-type-options", label: "X-Content-Type-Options" },
-  { key: "referrer-policy", label: "Referrer-Policy" },
-  { key: "permissions-policy", label: "Permissions-Policy" }
+  { key: "strict-transport-security", label: "Strict-Transport-Security (HSTS)", penalty: 12 },
+  { key: "content-security-policy", label: "Content-Security-Policy", penalty: 12 },
+  { key: "x-frame-options", label: "X-Frame-Options", penalty: 12 },
+  { key: "x-content-type-options", label: "X-Content-Type-Options", penalty: 12 },
+  { key: "referrer-policy", label: "Referrer-Policy", penalty: 12 },
+  { key: "permissions-policy", label: "Permissions-Policy", penalty: 12 },
+  // Avançados: mostrados como recomendação, sem descontar da nota (penalty 0).
+  { key: "cross-origin-opener-policy", label: "Cross-Origin-Opener-Policy", penalty: 0 },
+  { key: "cross-origin-resource-policy", label: "Cross-Origin-Resource-Policy", penalty: 0 },
+  { key: "cross-origin-embedder-policy", label: "Cross-Origin-Embedder-Policy", penalty: 0 }
+];
+
+// Integrações úteis pro cliente (pagamento, chat, CRM, maps…).
+// Diferente de trackers: aqui o foco é o que o site "usa de produto".
+const INTEGRATION_SIGNATURES = [
+  { name: "Mercado Pago", cat: "pagamento", test: ({ html }) => /mercadopago|static\.mercadolivre|mercadolivre\.com\.br.*checkout/i.test(html || "") },
+  { name: "Stripe", cat: "pagamento", test: ({ html }) => /js\.stripe\.com|stripe\.com\/v3/i.test(html || "") },
+  { name: "PagBank / PagSeguro", cat: "pagamento", test: ({ html }) => /pagseguro|pagbank/i.test(html || "") },
+  { name: "Pagar.me", cat: "pagamento", test: ({ html }) => /pagar\.me/i.test(html || "") },
+  { name: "Asaas", cat: "pagamento", test: ({ html }) => /asaas\.com/i.test(html || "") },
+  { name: "VTEX", cat: "e-commerce", test: ({ html }) => /vtex/i.test(html || "") },
+  { name: "Nuvemshop", cat: "e-commerce", test: ({ html }) => /nuvemshop|tiendanube/i.test(html || "") },
+  { name: "WhatsApp", cat: "contato", test: ({ html }) => /wa\.me|api\.whatsapp\.com|whatsapp\.com\/send/i.test(html || "") },
+  { name: "Tidio", cat: "chat", test: ({ html }) => /tidio/i.test(html || "") },
+  { name: "Tawk.to", cat: "chat", test: ({ html }) => /tawk\.to/i.test(html || "") },
+  { name: "Crisp", cat: "chat", test: ({ html }) => /crisp\.chat/i.test(html || "") },
+  { name: "HubSpot", cat: "crm", test: ({ html }) => /js\.hs-scripts|hubspot|hs-analytics/i.test(html || "") },
+  { name: "RD Station", cat: "crm", test: ({ html }) => /rdstation|rd\.station/i.test(html || "") },
+  { name: "Mailchimp", cat: "e-mail", test: ({ html }) => /list-manage\.com|mailchimp/i.test(html || "") },
+  { name: "Brevo", cat: "e-mail", test: ({ html }) => /sendinblue|brevo\.com/i.test(html || "") },
+  { name: "ActiveCampaign", cat: "e-mail", test: ({ html }) => /activecampaign/i.test(html || "") },
+  { name: "Google Maps", cat: "widget", test: ({ html }) => /maps\.googleapis|maps\.google\.com|google\.com\/maps/i.test(html || "") },
+  { name: "YouTube embed", cat: "widget", test: ({ html }) => /youtube\.com\/embed|ytimg\.com\/embed/i.test(html || "") },
+  { name: "reCAPTCHA", cat: "segurança", test: ({ html }) => /recaptcha|google\.com\/recaptcha/i.test(html || "") },
+  { name: "hCaptcha", cat: "segurança", test: ({ html }) => /hcaptcha\.com/i.test(html || "") },
+  { name: "Cloudflare Turnstile", cat: "segurança", test: ({ html }) => /turnstile|challenges\.cloudflare\.com/i.test(html || "") },
+  { name: "Calendly", cat: "agendamento", test: ({ html }) => /calendly/i.test(html || "") },
+  { name: "Google Tag Manager", cat: "tag", test: ({ html }) => /googletagmanager\.com|gtm\.js/i.test(html || "") }
+];
+
+const AI_BOT_NAMES = [
+  "GPTBot", "ChatGPT-User", "ClaudeBot", "Claude-User", "anthropic-ai",
+  "Google-Extended", "CCBot", "PerplexityBot", "Bytespider",
+  "meta-externalagent", "Applebot-Extended", "Amazonbot", "YouBot", "cohere-ai"
 ];
 
 // Caminhos públicos que nunca deveriam responder. `valid` olha o começo do
@@ -124,6 +180,12 @@ const subdomainsList = document.getElementById("subdomains-list");
 const subdomainsEmpty = document.getElementById("subdomains-empty");
 const openAllSubdomainsBtn = document.getElementById("open-all-subdomains-btn");
 const copyReportBtn = document.getElementById("copy-report-btn");
+const exportReportBtn = document.getElementById("export-report-btn");
+const exportHtmlBtn = document.getElementById("export-html-btn");
+const securityGradeEl = document.getElementById("security-grade");
+const gradeLetterEl = document.getElementById("grade-letter");
+const gradeLabelEl = document.getElementById("grade-label");
+const gradeScoreEl = document.getElementById("grade-score");
 const startInspectorBtn = document.getElementById("start-inspector-btn");
 const devBtn = document.getElementById("dev-btn");
 const devPanel = document.getElementById("dev-panel");
@@ -153,6 +215,25 @@ const seoFaviconImg = document.getElementById("seo-favicon-img");
 const seoFaviconDownloadBtn = document.getElementById("seo-favicon-download-btn");
 const seoHeadTbody = document.getElementById("seo-head-tbody");
 const seoJsonldList = document.getElementById("seo-jsonld-list");
+const pluginsContainer = document.getElementById("plugins-container");
+const pluginsList = document.getElementById("plugins-list");
+const mixedContainer = document.getElementById("mixed-container");
+const mixedList = document.getElementById("mixed-list");
+const robotsContainer = document.getElementById("robots-container");
+const robotsList = document.getElementById("robots-list");
+const pagespeedContainer = document.getElementById("pagespeed-container");
+const pagespeedList = document.getElementById("pagespeed-list");
+const runPagespeedBtn = document.getElementById("run-pagespeed-btn");
+const historyContainer = document.getElementById("history-container");
+const historyList = document.getElementById("history-list");
+const dnsContainer = document.getElementById("dns-container");
+const dnsList = document.getElementById("dns-list");
+const integrationsContainer = document.getElementById("integrations-container");
+const integrationsList = document.getElementById("integrations-list");
+const contactContainer = document.getElementById("contact-container");
+const contactList = document.getElementById("contact-list");
+const aiContainer = document.getElementById("ai-container");
+const aiList = document.getElementById("ai-list");
 
 let lastSitemapResults = [];
 let lastSubdomains = [];
@@ -169,6 +250,15 @@ let lastIsWordPress = false;
 let lastOrigin = "";
 let lastSeoData = null;
 let lastPerf = null;
+let lastWpPlugins = [];
+let lastWpThemes = [];
+let lastMixedContent = [];
+let lastRobots = null;
+let lastPageSpeed = null;
+let lastEmailDns = null;
+let lastIntegrations = [];
+let lastContact = null;
+let lastAiInfo = null;
 let scanId = 0;
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -201,15 +291,91 @@ async function getActiveTabOrigin() {
   }
 }
 
+// Segue a cadeia de redirect à mão e mescla os headers de todas as
+// respostas. Sem isso, headers como HSTS vindos só no 3xx (comum em
+// Cloudflare) sumiam quando o fetch automático pousava no destino final.
 async function fetchHomepage(origin) {
+  const mergeHeaders = (target, res) => {
+    res.headers.forEach((value, key) => {
+      const k = key.toLowerCase();
+      if (!(k in target) && value !== "") target[k] = value;
+    });
+  };
+
+  const readBody = async (res) => {
+    if (!res.ok) return null;
+    try {
+      return await res.text();
+    } catch {
+      return null;
+    }
+  };
+
   try {
-    const res = await fetchWithTimeout(origin + "/");
+    const first = await fetchWithTimeout(origin + "/", { redirect: "manual" });
+
+    // opaqueredirect (status 0) não expõe headers/location: cai no automático.
+    if (first.status === 0) throw new Error("opaque-redirect");
+
     const headers = {};
-    res.headers.forEach((value, key) => { headers[key] = value; });
-    if (!res.ok) return { html: null, headers };
-    return { html: await res.text(), headers };
+    mergeHeaders(headers, first);
+
+    const location = first.headers.get("location");
+    if (first.status >= 300 && first.status < 400 && location) {
+      const dest = new URL(location, origin + "/").href;
+      try {
+        const res = await fetchWithTimeout(dest);
+        mergeHeaders(headers, res);
+        return { html: await readBody(res), headers };
+      } catch {
+        return { html: null, headers };
+      }
+    }
+
+    return { html: await readBody(first), headers };
   } catch {
-    return { html: null, headers: {} };
+    // Fallback: deixa o navegador seguir os redirects sozinho.
+    try {
+      const res = await fetchWithTimeout(origin + "/");
+      const headers = {};
+      mergeHeaders(headers, res);
+      return { html: await readBody(res), headers };
+    } catch {
+      return { html: null, headers: {} };
+    }
+  }
+}
+
+// HSTS nem sempre aparece em response.headers do fetch da extensão
+// (cross-origin sem Access-Control-Expose-Headers; redirect:manual vira
+// opaqueredirect status 0). Sonda same-origin na própria página, que
+// enxerga todos os headers no 200 final (HSTS costuma vir nos dois hops).
+async function probePageSecurityHeaders() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) return {};
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        try {
+          const res = await fetch(location.origin + "/", {
+            redirect: "follow",
+            cache: "no-store"
+          });
+          const headers = {};
+          res.headers.forEach((value, key) => {
+            const k = key.toLowerCase();
+            if (value !== "") headers[k] = value;
+          });
+          return headers;
+        } catch {
+          return {};
+        }
+      }
+    });
+    return result || {};
+  } catch {
+    return {};
   }
 }
 
@@ -227,8 +393,92 @@ function detectTechStack(html, headers) {
   // Header cru, além das assinaturas de CDN acima: útil pra saber se é
   // nginx, Apache, LiteSpeed etc., algo que nenhuma assinatura fixa cobre.
   if (headers["server"]) matches.push(`Servidor: ${headers["server"]}`);
+  if (headers["x-powered-by"]) matches.push(headers["x-powered-by"]);
 
-  return matches;
+  return [...new Set(matches)];
+}
+
+// Extrai plugins e tema ativo do WordPress a partir dos caminhos
+// wp-content/plugins/<nome>/ e wp-content/themes/<nome>/ no HTML da home.
+function detectWpComponents(html) {
+  const plugins = new Set();
+  const themes = new Set();
+  if (!html) return { plugins: [], themes: [] };
+  const pluginRe = /wp-content\/plugins\/([a-z0-9_-]+)\//gi;
+  const themeRe = /wp-content\/themes\/([a-z0-9_-]+)\//gi;
+  let m;
+  while ((m = pluginRe.exec(html))) plugins.add(m[1]);
+  while ((m = themeRe.exec(html))) themes.add(m[1]);
+  return { plugins: [...plugins].sort(), themes: [...themes].sort() };
+}
+
+// Recursos http:// em página https = mixed content (navegador bloqueia
+// passivos, ativos dão aviso no console). Só olha o HTML estático da home.
+function findMixedContent(html, origin) {
+  if (!origin.startsWith("https:") || !html) return [];
+  const found = new Set();
+  const re = /(?:src|href|poster|data-src)\s*=\s*["'](http:\/\/[^"']+)["']/gi;
+  let m;
+  while ((m = re.exec(html))) found.add(m[1]);
+  return [...found].slice(0, 20);
+}
+
+// robots.txt: Disallow/Allow por User-agent, Host e Crawl-delay.
+// Sitemap já é tratado por getSitemapsFromRobots.
+function parseRobots(text) {
+  if (!text) return null;
+  const lines = text.split(/\r?\n/);
+  let currentUser = "*";
+  const agents = {};
+  let host = null;
+  let crawlDelay = null;
+  let disallowTotal = 0;
+  let allowTotal = 0;
+
+  const ensure = (name) => agents[name] || (agents[name] = { disallow: [], allow: [], crawlDelay: null });
+
+  for (const raw of lines) {
+    const line = raw.replace(/#.*$/, "").trim();
+    if (!line) continue;
+    const idx = line.indexOf(":");
+    if (idx < 0) continue;
+    const key = line.slice(0, idx).trim().toLowerCase();
+    const value = line.slice(idx + 1).trim();
+
+    if (key === "user-agent") {
+      currentUser = value || "*";
+      ensure(currentUser);
+    } else if (key === "disallow") {
+      const a = ensure(currentUser);
+      if (value !== "") {
+        a.disallow.push(value);
+        disallowTotal++;
+      }
+    } else if (key === "allow") {
+      const a = ensure(currentUser);
+      if (value !== "") {
+        a.allow.push(value);
+        allowTotal++;
+      }
+    } else if (key === "crawl-delay") {
+      const n = Number(value);
+      if (!Number.isNaN(n)) {
+        ensure(currentUser).crawlDelay = n;
+        if (crawlDelay === null) crawlDelay = n;
+      }
+    } else if (key === "host") {
+      if (!host) host = value;
+    }
+  }
+
+  return {
+    agents: Object.entries(agents).map(([name, data]) => ({ name, ...data })),
+    host,
+    crawlDelay,
+    disallowTotal,
+    allowTotal,
+    hasDisallow: disallowTotal > 0
+  };
 }
 
 // Testa se a versão http:// redireciona pra https://. Só faz sentido
@@ -244,17 +494,101 @@ async function checkHttpsForced(origin) {
 }
 
 function buildSecurityChecks(headers, httpsForced) {
-  const checks = SECURITY_HEADERS.map((h) => ({
-    label: h.label,
-    ok: !!headers[h.key],
-    note: headers[h.key] ? "Presente." : "Ausente, recomenda-se configurar."
-  }));
+  const csp = headers["content-security-policy"] || "";
+  const checks = SECURITY_HEADERS.map((h) => {
+    const present = !!headers[h.key];
+    const penalty = h.penalty != null ? h.penalty : 12;
+    let note;
+    if (!present) {
+      note = penalty === 0
+        ? "Recomendado (não afeta a nota)."
+        : "Ausente, recomenda-se configurar.";
+    } else if (h.key === "content-security-policy") {
+      const issues = analyzeCspIssues(csp);
+      note = issues.length
+        ? "Presente, mas com riscos: " + issues.join(", ") + "."
+        : "Presente. Sem unsafe-inline/eval aparente.";
+    } else {
+      note = "Presente.";
+    }
+    return { label: h.label, ok: present, note, penalty };
+  });
+
   checks.push({
     label: "HTTPS forçado",
     ok: httpsForced,
-    note: httpsForced ? "http:// redireciona para https://." : "http:// não redireciona para https://."
+    note: httpsForced ? "http:// redireciona para https://." : "http:// não redireciona para https://.",
+    penalty: 12
   });
+
+  if (csp) {
+    const issues = analyzeCspIssues(csp);
+    if (issues.length) {
+      checks.push({
+        label: "Qualidade da CSP",
+        ok: false,
+        note: "Riscos: " + issues.join(", ") + ". Vale revisar a política.",
+        penalty: 4
+      });
+    }
+  }
+
   return checks;
+}
+
+function analyzeCspIssues(csp) {
+  if (!csp) return [];
+  const issues = [];
+  if (/unsafe-inline/i.test(csp)) issues.push("unsafe-inline");
+  if (/unsafe-eval/i.test(csp)) issues.push("unsafe-eval");
+  const scriptSrc = csp
+    .split(";")
+    .map((s) => s.trim())
+    .find((d) => /^script-src(?:-elem|-attr)?\b/i.test(d) || /^default-src\b/i.test(d));
+  if (scriptSrc && /(^|[\s'])\*(?![0-9a-z-])/i.test(scriptSrc) && !/nonce-|'strict-dynamic'/i.test(scriptSrc)) {
+    issues.push("wildcard em script/default-src");
+  }
+  return issues;
+}
+
+function computeSecurityGrade() {
+  if (!lastSecurityChecks.length) return null;
+  let score = 100;
+  lastSecurityChecks.forEach((c) => {
+    if (!c.ok) score -= c.penalty != null ? c.penalty : 12;
+  });
+  lastSensitiveFiles.forEach((f) => {
+    if (f.severity === "critical") score -= 15;
+    else if (f.severity === "warning") score -= 8;
+  });
+  const weakCookies = lastCookies.filter(
+    (c) => !c.secure || !(c.sameSite === "lax" || c.sameSite === "strict")
+  );
+  score -= weakCookies.length * 3;
+  score = Math.max(0, Math.min(100, score));
+  let grade = "F";
+  if (score >= 90) grade = "A";
+  else if (score >= 80) grade = "B";
+  else if (score >= 70) grade = "C";
+  else if (score >= 60) grade = "D";
+  return { score, grade, weakCookies: weakCookies.length };
+}
+
+function updateSecurityGrade() {
+  const g = computeSecurityGrade();
+  if (!g) {
+    securityGradeEl.classList.add("hidden");
+    return;
+  }
+  securityGradeEl.classList.remove("hidden");
+  gradeLetterEl.textContent = g.grade;
+  gradeLetterEl.className = "grade-letter grade-" + g.grade.toLowerCase();
+  gradeLabelEl.textContent =
+    g.grade === "A" ? "Excelente" :
+    g.grade === "B" ? "Bom" :
+    g.grade === "C" ? "Regular" :
+    g.grade === "D" ? "Fraco" : "Crítico";
+  gradeScoreEl.textContent = g.score + "/100";
 }
 
 // Lê só o primeiro chunk do corpo (até maxBytes) e cancela o resto, pra não
@@ -396,6 +730,179 @@ async function getSitemapsFromRobots(origin) {
   } catch {
     return [];
   }
+}
+
+async function fetchRobotsAnalysis(origin) {
+  try {
+    const res = await fetchWithTimeout(origin + "/robots.txt");
+    if (!res.ok) return null;
+    const text = await res.text();
+    return parseRobots(text);
+  } catch {
+    return null;
+  }
+}
+
+function detectIntegrations(html, headers) {
+  return INTEGRATION_SIGNATURES.filter((s) => {
+    try {
+      return !!s.test({ html, headers });
+    } catch {
+      return false;
+    }
+  }).map((s) => ({ name: s.name, cat: s.cat }));
+}
+
+function extractContactInfo(html) {
+  const emails = new Set();
+  if (html) {
+    const re = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+    let m;
+    while ((m = re.exec(html))) {
+      const e = m[0].toLowerCase();
+      if (/\.(png|jpe?g|gif|svg|webp|css|js|woff2?)$/i.test(e)) continue;
+      if (/(example\.(com|org)|sentry|w3\.org|schema\.org|googleapis|cloudflare|domain\.com)/i.test(e)) continue;
+      emails.add(e);
+    }
+    const mailtoRe = /href=["']mailto:([^"'?]+)/gi;
+    while ((m = mailtoRe.exec(html))) emails.add(m[1].toLowerCase());
+  }
+
+  const privacy = [];
+  if (html) {
+    const linkRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let m;
+    while ((m = linkRe.exec(html))) {
+      const href = m[1];
+      const text = m[2].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      if (/privacidade|privacy|termos[- ]de[- ]uso|terms|lgpd|cookie[- ]?policy|pol[ií]tica/i.test(href + " " + text)) {
+        privacy.push({ href, text: text || href });
+      }
+    }
+  }
+
+  const seen = new Set();
+  const privacyDeduped = privacy.filter((p) => {
+    const k = (p.text + "|" + p.href).toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  return { emails: [...emails].slice(0, 20), privacy: privacyDeduped.slice(0, 12) };
+}
+
+function detectAiBots(text) {
+  if (!text) return [];
+  const found = [];
+  let name = null;
+  const disallows = [];
+  const flush = () => {
+    if (!name) return;
+    const lower = name.toLowerCase();
+    const known = AI_BOT_NAMES.find((b) => lower === b.toLowerCase() || lower.startsWith(b.toLowerCase()));
+    if (known) {
+      const blocked = disallows.some((d) => d === "/" || d === "");
+      found.push({ name, blocked });
+    }
+    name = null;
+    disallows.length = 0;
+  };
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, "").trim();
+    if (!line) continue;
+    const ua = line.match(/^user-agent\s*:\s*(\S+)/i);
+    if (ua) {
+      flush();
+      name = ua[1];
+      continue;
+    }
+    const dis = line.match(/^disallow\s*:\s*(.*)/i);
+    if (dis && name) disallows.push(dis[1].trim());
+  }
+  flush();
+  const seen = new Set();
+  return found.filter((f) => {
+    const k = f.name.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+async function fetchRobotsRaw(origin) {
+  try {
+    const res = await fetchWithTimeout(origin + "/robots.txt");
+    if (!res.ok) return "";
+    return await res.text();
+  } catch {
+    return "";
+  }
+}
+
+async function checkLlmsTxt(origin) {
+  try {
+    const res = await fetchWithTimeout(origin + "/llms.txt");
+    if (!res.ok) return { present: false };
+    const text = await res.text();
+    if (!text || text.trim().length < 8) return { present: false };
+    const title = (text.match(/^#\s+(.+)$/m) || [])[1] || "";
+    return { present: true, title: title.trim().slice(0, 120), lines: text.split(/\r?\n/).filter(Boolean).length };
+  } catch {
+    return { present: false };
+  }
+}
+
+async function dohQuery(name, type) {
+  try {
+    const res = await fetchWithTimeout(
+      "https://dns.google/resolve?name=" + encodeURIComponent(name) + "&type=" + type
+    );
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// MX/SPF/DMARC via DNS-over-HTTPS: resolve sem precisar de dig/nslookup.
+async function lookupEmailAuth(hostname) {
+  const [mx, txt, dmarc] = await Promise.all([
+    dohQuery(hostname, "MX"),
+    dohQuery(hostname, "TXT"),
+    dohQuery("_dmarc." + hostname, "TXT")
+  ]);
+
+  const answers = (data) => (data && Array.isArray(data.Answer) ? data.Answer : []);
+
+  const mxRecords = answers(mx)
+    .filter((a) => a.type === 15)
+    .map((a) => {
+      const s = String(a.data || "").trim();
+      const parts = s.split(/\s+/);
+      const host = parts.length > 1 ? parts.slice(1).join(" ") : s;
+      return host.replace(/\.$/, "");
+    })
+    .filter(Boolean);
+
+  const spf = answers(txt)
+    .filter((a) => a.type === 16)
+    .map((a) => String(a.data || "").replace(/^"|"$/g, ""))
+    .find((v) => /^v=spf1/i.test(v)) || null;
+
+  const dmarcRec = answers(dmarc)
+    .filter((a) => a.type === 16)
+    .map((a) => String(a.data || "").replace(/^"|"$/g, ""))
+    .find((v) => /^v=DMARC1/i.test(v)) || null;
+
+  return {
+    mx: mxRecords.slice(0, 6),
+    spf,
+    dmarc: dmarcRec,
+    hasMx: mxRecords.length > 0,
+    hasSpf: !!spf,
+    hasDmarc: !!dmarcRec
+  };
 }
 
 // Vários plugins de SEO (Rank Math, AIOSEO, etc.) só declaram o sitemap
@@ -1134,10 +1641,12 @@ function renderPerf(perf) {
 function renderSecurity(checks) {
   securityList.innerHTML = "";
   lastSecurityChecks = checks;
+  updateSecurityGrade();
 
   checks.forEach((item) => {
     const li = document.createElement("li");
-    li.className = "severity-" + (item.ok ? "info" : "warning");
+    const optional = item.penalty === 0 && !item.ok;
+    li.className = "severity-" + (item.ok ? "info" : optional ? "info" : "warning");
 
     const row = document.createElement("div");
     row.className = "link-row";
@@ -1146,8 +1655,16 @@ function renderSecurity(checks) {
     label.textContent = item.label;
 
     const badge = document.createElement("span");
-    badge.className = "badge " + (item.ok ? "badge-ok" : "badge-warn");
-    badge.textContent = item.ok ? "OK" : "Ausente";
+    if (item.ok) {
+      badge.className = "badge badge-ok";
+      badge.textContent = "OK";
+    } else if (optional) {
+      badge.className = "badge badge-ok";
+      badge.textContent = "—";
+    } else {
+      badge.className = "badge badge-warn";
+      badge.textContent = "Ausente";
+    }
 
     row.appendChild(label);
     row.appendChild(badge);
@@ -1162,6 +1679,410 @@ function renderSecurity(checks) {
   });
 
   securityContainer.classList.remove("hidden");
+  updateToolbarBadge();
+}
+
+function renderWpComponents(components) {
+  pluginsList.innerHTML = "";
+  lastWpPlugins = components.plugins || [];
+  lastWpThemes = components.themes || [];
+  if (!lastWpPlugins.length && !lastWpThemes.length) {
+    pluginsContainer.classList.add("hidden");
+    return;
+  }
+  lastWpThemes.forEach((t) => {
+    const li = document.createElement("li");
+    li.className = "severity-info";
+    const row = document.createElement("div");
+    row.className = "link-row";
+    const span = document.createElement("span");
+    span.textContent = "Tema: " + t;
+    const badge = document.createElement("span");
+    badge.className = "badge badge-ok";
+    badge.textContent = "theme";
+    row.appendChild(span);
+    row.appendChild(badge);
+    li.appendChild(row);
+    pluginsList.appendChild(li);
+  });
+  lastWpPlugins.forEach((p) => {
+    const li = document.createElement("li");
+    li.className = "severity-info";
+    const row = document.createElement("div");
+    row.className = "link-row";
+    const span = document.createElement("span");
+    span.textContent = p;
+    const badge = document.createElement("span");
+    badge.className = "badge badge-ok";
+    badge.textContent = "plugin";
+    row.appendChild(span);
+    row.appendChild(badge);
+    li.appendChild(row);
+    pluginsList.appendChild(li);
+  });
+  pluginsContainer.classList.remove("hidden");
+}
+
+function renderMixedContent(urls) {
+  mixedList.innerHTML = "";
+  lastMixedContent = urls || [];
+  if (!lastMixedContent.length) {
+    mixedContainer.classList.add("hidden");
+    return;
+  }
+  lastMixedContent.forEach((url) => {
+    const li = document.createElement("li");
+    li.className = "severity-warning";
+    const row = document.createElement("div");
+    row.className = "link-row";
+    const a = document.createElement("a");
+    a.href = url;
+    a.textContent = url;
+    a.title = url;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      openInBackground(url);
+    });
+    const badge = document.createElement("span");
+    badge.className = "badge badge-warn";
+    badge.textContent = "http";
+    row.appendChild(a);
+    row.appendChild(badge);
+    const risk = document.createElement("div");
+    risk.className = "risk-note";
+    risk.textContent = "Recurso carregado via http:// em página https (mixed content).";
+    li.appendChild(row);
+    li.appendChild(risk);
+    mixedList.appendChild(li);
+  });
+  mixedContainer.classList.remove("hidden");
+}
+
+function renderRobots(robots) {
+  robotsList.innerHTML = "";
+  lastRobots = robots;
+  if (!robots) {
+    robotsContainer.classList.add("hidden");
+    return;
+  }
+  const add = (label, value) => addKvRow(robotsList, label, value);
+  add("Disallow (total)", String(robots.disallowTotal));
+  add("Allow (total)", String(robots.allowTotal));
+  if (robots.host) add("Host", robots.host);
+  if (robots.crawlDelay !== null) add("Crawl-delay", String(robots.crawlDelay));
+  robots.agents.forEach((a) => {
+    add(
+      "User-agent: " + a.name,
+      `${a.disallow.length} disallow, ${a.allow.length} allow` +
+        (a.crawlDelay !== null ? `, delay ${a.crawlDelay}s` : "")
+    );
+  });
+  if (!robots.hasDisallow && robots.agents.length === 0) {
+    add("Status", "robots.txt presente, sem regras de Disallow/User-agent");
+  }
+  robotsContainer.classList.remove("hidden");
+}
+
+function renderEmailDns(data) {
+  dnsList.innerHTML = "";
+  lastEmailDns = data;
+  if (!data) {
+    dnsContainer.classList.add("hidden");
+    return;
+  }
+  addKvRow(dnsList, "MX", data.mx.length ? data.mx.join(", ") : null, "Ausente");
+  addKvRow(
+    dnsList,
+    "SPF",
+    data.spf ? (data.spf.length > 80 ? data.spf.slice(0, 80) + "…" : data.spf) : null,
+    "Ausente"
+  );
+  addKvRow(dnsList, "DMARC", data.dmarc || null, "Ausente (_dmarc)");
+  addKvRow(
+    dnsList,
+    "Status",
+    data.hasMx && data.hasSpf && data.hasDmarc
+      ? "Completo (MX + SPF + DMARC)"
+      : !data.hasMx
+        ? "Sem MX — não recebe e-mail"
+        : !data.hasSpf
+          ? "Sem SPF — risco de spoofing"
+          : "Sem DMARC — sem política anti-spoofing"
+  );
+  dnsContainer.classList.remove("hidden");
+}
+
+function renderIntegrations(list) {
+  integrationsList.innerHTML = "";
+  lastIntegrations = list || [];
+  if (!lastIntegrations.length) {
+    integrationsContainer.classList.add("hidden");
+    return;
+  }
+  const li = document.createElement("li");
+  lastIntegrations.forEach((item) => {
+    const badge = document.createElement("span");
+    badge.className = "tracker-badge";
+    badge.textContent = item.cat ? item.cat + ": " + item.name : item.name;
+    li.appendChild(badge);
+  });
+  integrationsList.appendChild(li);
+  integrationsContainer.classList.remove("hidden");
+}
+
+function renderContact(data) {
+  contactList.innerHTML = "";
+  lastContact = data;
+  if (!data || (!data.emails.length && !data.privacy.length)) {
+    contactContainer.classList.add("hidden");
+    return;
+  }
+  addKvRow(
+    contactList,
+    "E-mails na página",
+    data.emails.length ? data.emails.join(", ") : null,
+    "Nenhum encontrado"
+  );
+  data.privacy.forEach((p) => {
+    const li = document.createElement("li");
+    li.className = "kv-row";
+    const labelEl = document.createElement("span");
+    labelEl.className = "kv-label";
+    labelEl.textContent = "Política / termos";
+    const valueEl = document.createElement("span");
+    valueEl.className = "kv-value";
+    const a = document.createElement("a");
+    a.href = p.href;
+    a.textContent = p.text.slice(0, 60);
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    valueEl.appendChild(a);
+    li.appendChild(labelEl);
+    li.appendChild(valueEl);
+    contactList.appendChild(li);
+  });
+  if (!data.privacy.length) {
+    addKvRow(contactList, "Política / LGPD", null, "Nenhum link encontrado");
+  }
+  contactContainer.classList.remove("hidden");
+}
+
+function renderAiInfo(info) {
+  aiList.innerHTML = "";
+  lastAiInfo = info;
+  if (!info || (!info.aiBots.length && !info.llms.present)) {
+    aiContainer.classList.add("hidden");
+    return;
+  }
+  if (info.aiBots.length) {
+    info.aiBots.forEach((b) => {
+      addKvRow(aiList, "Bot: " + b.name, b.blocked ? "Bloqueado (Disallow /)" : "Permitido");
+    });
+  } else {
+    addKvRow(aiList, "Bots de IA no robots", null, "Nenhum conhecido listado");
+  }
+  if (info.llms.present) {
+    addKvRow(
+      aiList,
+      "llms.txt",
+      info.llms.title
+        ? `Presente (${info.llms.lines} linhas) — ${info.llms.title}`
+        : `Presente (${info.llms.lines} linhas)`
+    );
+  } else {
+    addKvRow(aiList, "llms.txt", null, "Ausente em /llms.txt");
+  }
+  aiContainer.classList.remove("hidden");
+}
+
+function renderPageSpeed(data) {
+  pagespeedList.innerHTML = "";
+  lastPageSpeed = data;
+  if (!data) {
+    pagespeedContainer.classList.add("hidden");
+    return;
+  }
+  ["mobile", "desktop"].forEach((strategy) => {
+    const s = data[strategy];
+    if (!s) return;
+    if (s.error) {
+      addKvRow(pagespeedList, strategy, "Erro: " + s.error);
+      return;
+    }
+    const score = s.score !== null && s.score !== undefined ? Math.round(s.score * 100) + "/100" : "—";
+    addKvRow(pagespeedList, strategy === "mobile" ? "Mobile" : "Desktop", score);
+    if (s.fcp) addKvRow(pagespeedList, "  FCP", (s.fcp / 1000).toFixed(2) + " s");
+    if (s.lcp) addKvRow(pagespeedList, "  LCP", (s.lcp / 1000).toFixed(2) + " s");
+    if (s.cls !== null && s.cls !== undefined) addKvRow(pagespeedList, "  CLS", s.cls.toFixed(3));
+    if (s.tbt !== null && s.tbt !== undefined) addKvRow(pagespeedList, "  TBT", Math.round(s.tbt) + " ms");
+  });
+  pagespeedContainer.classList.remove("hidden");
+}
+
+async function runPageSpeed() {
+  if (!lastOrigin) return;
+  const original = runPagespeedBtn.textContent;
+  runPagespeedBtn.disabled = true;
+  runPagespeedBtn.textContent = "⏳ Rodando PageSpeed (10–30s)...";
+  pagespeedList.innerHTML = "";
+  pagespeedContainer.classList.remove("hidden");
+
+  const strategies = ["mobile", "desktop"];
+  const results = {};
+
+  await Promise.all(
+    strategies.map(async (strategy) => {
+      try {
+        const url =
+          "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=" +
+          encodeURIComponent(lastOrigin) +
+          "&strategy=" +
+          strategy;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 45000);
+        let res;
+        try {
+          res = await fetch(url, { signal: controller.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          results[strategy] = {
+            error:
+              (err && err.error && err.error.message) ||
+              "HTTP " + res.status
+          };
+          return;
+        }
+        const data = await res.json();
+        const lh = (data.lighthouseResult && data.lighthouseResult.audits) || {};
+        const cat =
+          (data.lighthouseResult &&
+            data.lighthouseResult.categories &&
+            data.lighthouseResult.categories.performance) ||
+          {};
+        const m = (id) => (lh[id] && lh[id].numericValue) || null;
+        results[strategy] = {
+          score: typeof cat.score === "number" ? cat.score : null,
+          fcp: m("first-contentful-paint"),
+          lcp: m("largest-contentful-paint"),
+          cls: lh["cumulative-layout-shift"]
+            ? lh["cumulative-layout-shift"].numericValue
+            : null,
+          tbt: m("total-blocking-time")
+        };
+      } catch (e) {
+        results[strategy] = {
+          error: e && e.name === "AbortError" ? "timeout (45s)" : "falha de rede"
+        };
+      }
+    })
+  );
+
+  renderPageSpeed(results);
+  runPagespeedBtn.disabled = false;
+  runPagespeedBtn.textContent = original;
+}
+
+// Badge na toolbar: nº de achados críticos+atenção sem abrir o painel.
+async function updateToolbarBadge() {
+  try {
+    const critical =
+      lastSensitiveFiles.filter((f) => f.severity === "critical").length +
+      lastFoundResults.filter((r) => r.severity === "critical").length;
+    const warning =
+      lastSensitiveFiles.filter((f) => f.severity === "warning").length +
+      lastFoundResults.filter((r) => r.severity === "warning").length +
+      lastMixedContent.length;
+    const total = critical + warning;
+    if (total > 0) {
+      await chrome.action.setBadgeText({ text: String(Math.min(total, 99)) });
+      await chrome.action.setBadgeBackgroundColor({
+        color: critical > 0 ? "#ff4d5e" : "#ffcc4d"
+      });
+    } else {
+      await chrome.action.setBadgeText({ text: "" });
+    }
+  } catch {}
+}
+
+// Histórico por origem em chrome.storage.local (persiste entre sessões).
+async function saveHistory(origin) {
+  try {
+    const key = "sitexray-history:" + origin;
+    const grade = computeSecurityGrade();
+    const entry = {
+      ts: Date.now(),
+      grade: grade ? grade.grade : null,
+      score: grade ? grade.score : null,
+      isWordPress: lastIsWordPress,
+      tech: lastTechStack.slice(0, 8),
+      critical:
+        lastSensitiveFiles.filter((f) => f.severity === "critical").length +
+        lastFoundResults.filter((r) => r.severity === "critical").length,
+      mixed: lastMixedContent.length,
+      title: lastSeoData ? lastSeoData.title || "" : ""
+    };
+    const stored = (await chrome.storage.local.get(key))[key] || [];
+    const last = stored[0];
+    // Side panel refaz o scan a cada navegação: não enche o histórico
+    // com a mesma nota em menos de 2 minutos.
+    if (
+      last &&
+      Date.now() - last.ts < 120000 &&
+      last.grade === entry.grade &&
+      last.score === entry.score &&
+      last.isWordPress === entry.isWordPress &&
+      last.critical === entry.critical &&
+      last.mixed === entry.mixed
+    ) {
+      return;
+    }
+    stored.unshift(entry);
+    await chrome.storage.local.set({ [key]: stored.slice(0, 20) });
+  } catch {}
+}
+
+async function loadHistory(origin) {
+  try {
+    const key = "sitexray-history:" + origin;
+    const list = (await chrome.storage.local.get(key))[key] || [];
+    historyList.innerHTML = "";
+    if (!list.length) {
+      historyContainer.classList.add("hidden");
+      return;
+    }
+    list.forEach((e) => {
+      const li = document.createElement("li");
+      li.className = "severity-info";
+      const row = document.createElement("div");
+      row.className = "link-row";
+      const when = document.createElement("span");
+      when.textContent = new Date(e.ts).toLocaleString("pt-BR");
+      const badge = document.createElement("span");
+      if (e.grade === "A" || e.grade === "B") badge.className = "badge badge-ok";
+      else if (e.grade) badge.className = "badge badge-warn";
+      else badge.className = "badge badge-ok";
+      badge.textContent = e.grade ? e.grade + (e.score != null ? " " + e.score : "") : "—";
+      row.appendChild(when);
+      row.appendChild(badge);
+      const meta = document.createElement("div");
+      meta.className = "risk-note";
+      const bits = [];
+      if (e.isWordPress) bits.push("WP");
+      if (e.critical) bits.push(e.critical + " crítico(s)");
+      if (e.mixed) bits.push(e.mixed + " mixed");
+      if (e.tech && e.tech.length) bits.push(e.tech.slice(0, 4).join(", "));
+      meta.textContent = bits.join(" · ") || (e.title ? e.title.slice(0, 80) : "");
+      li.appendChild(row);
+      li.appendChild(meta);
+      historyList.appendChild(li);
+    });
+    historyContainer.classList.remove("hidden");
+  } catch {
+    historyContainer.classList.add("hidden");
+  }
 }
 
 function addEmptyItem(list, text) {
@@ -1174,6 +2095,7 @@ function addEmptyItem(list, text) {
 function renderSensitiveFiles(found) {
   sensitiveList.innerHTML = "";
   lastSensitiveFiles = found;
+  updateSecurityGrade();
 
   if (found.length === 0) {
     addEmptyItem(sensitiveList, "Nenhum arquivo sensível encontrado nos caminhos testados.");
@@ -1216,6 +2138,7 @@ function renderSensitiveFiles(found) {
 function renderCookies(cookies) {
   cookiesList.innerHTML = "";
   lastCookies = cookies;
+  updateSecurityGrade();
 
   if (cookies.length === 0) {
     addEmptyItem(cookiesList, "Nenhum cookie encontrado (ou sem permissão pra ler).");
@@ -1867,6 +2790,45 @@ function buildReport() {
     });
   }
 
+  if (lastWpPlugins.length || lastWpThemes.length) {
+    lines.push("");
+    if (lastWpThemes.length) lines.push("Tema(s) WordPress: " + lastWpThemes.join(", "));
+    if (lastWpPlugins.length) lines.push("Plugins WordPress: " + lastWpPlugins.join(", "));
+  }
+
+  if (lastMixedContent.length) {
+    lines.push("");
+    lines.push(`Mixed content (${lastMixedContent.length}):`);
+    lastMixedContent.forEach((u) => lines.push(`- ${u}`));
+  }
+
+  if (lastRobots) {
+    lines.push("");
+    lines.push(
+      `robots.txt: ${lastRobots.disallowTotal} disallow, ${lastRobots.allowTotal} allow` +
+        (lastRobots.host ? `, Host: ${lastRobots.host}` : "") +
+        (lastRobots.crawlDelay !== null ? `, crawl-delay ${lastRobots.crawlDelay}s` : "")
+    );
+  }
+
+  if (lastPageSpeed) {
+    lines.push("");
+    lines.push("PageSpeed Insights:");
+    ["mobile", "desktop"].forEach((strategy) => {
+      const s = lastPageSpeed[strategy];
+      if (!s) return;
+      if (s.error) {
+        lines.push(`- ${strategy}: erro (${s.error})`);
+        return;
+      }
+      const score = s.score != null ? Math.round(s.score * 100) + "/100" : "—";
+      let line = `- ${strategy}: ${score}`;
+      if (s.lcp) line += `, LCP ${(s.lcp / 1000).toFixed(2)}s`;
+      if (s.cls != null) line += `, CLS ${s.cls.toFixed(3)}`;
+      lines.push(line);
+    });
+  }
+
   lines.push("");
   lines.push(
     lastTrackers.length > 0
@@ -1885,9 +2847,15 @@ function buildReport() {
   }
 
   lines.push("");
+  const grade = computeSecurityGrade();
+  if (grade) {
+    lines.push(`Nota de segurança: ${grade.grade} (${grade.score}/100)`);
+    lines.push("");
+  }
   lines.push("Segurança:");
   lastSecurityChecks.forEach((item) => {
-    lines.push(`- [${item.ok ? "OK" : "Ausente"}] ${item.label} - ${item.note}`);
+    const optional = item.penalty === 0 && !item.ok;
+    lines.push(`- [${item.ok ? "OK" : optional ? "—" : "Ausente"}] ${item.label} - ${item.note}`);
   });
 
   if (lastSensitiveFiles.length > 0) {
@@ -1943,6 +2911,36 @@ function buildReport() {
     lines.push("Subdomínios: nenhum encontrado via crt.sh");
   }
 
+  if (lastEmailDns) {
+    lines.push("");
+    lines.push("E-mail / DNS:");
+    lines.push(`- MX: ${lastEmailDns.mx.length ? lastEmailDns.mx.join(", ") : "ausente"}`);
+    lines.push(`- SPF: ${lastEmailDns.spf || "ausente"}`);
+    lines.push(`- DMARC: ${lastEmailDns.dmarc || "ausente"}`);
+  }
+
+  if (lastIntegrations.length) {
+    lines.push("");
+    lines.push("Integrações: " + lastIntegrations.map((i) => i.name).join(", "));
+  }
+
+  if (lastContact && (lastContact.emails.length || lastContact.privacy.length)) {
+    lines.push("");
+    if (lastContact.emails.length) lines.push("E-mails na página: " + lastContact.emails.join(", "));
+    if (lastContact.privacy.length) {
+      lines.push("Política/termos:");
+      lastContact.privacy.forEach((p) => lines.push(`- ${p.text} (${p.href})`));
+    }
+  }
+
+  if (lastAiInfo && (lastAiInfo.aiBots.length || lastAiInfo.llms.present)) {
+    lines.push("");
+    lines.push("IA / llms.txt:");
+    lastAiInfo.aiBots.forEach((b) => lines.push(`- ${b.name}: ${b.blocked ? "bloqueado" : "permitido"}`));
+    if (lastAiInfo.llms.present) lines.push(`- llms.txt: presente (${lastAiInfo.llms.lines} linhas)`);
+    else lines.push("- llms.txt: ausente");
+  }
+
   return lines.join("\n");
 }
 
@@ -1958,7 +2956,11 @@ async function saveCache(origin) {
         trackers: lastTrackers, tech: lastTechStack, security: lastSecurityChecks,
         sensitive: lastSensitiveFiles, cookies: lastCookies, redirects: lastRedirectCandidates,
         seo: lastSeoData, sitemaps: lastSitemapResults, subdomains: lastSubdomains,
-        perf: lastPerf, isWordPress: lastIsWordPress, wpLinks: lastFoundResults
+        perf: lastPerf, isWordPress: lastIsWordPress, wpLinks: lastFoundResults,
+        plugins: lastWpPlugins, themes: lastWpThemes, mixed: lastMixedContent,
+        robots: lastRobots, pageSpeed: lastPageSpeed,
+        emailDns: lastEmailDns, integrations: lastIntegrations,
+        contact: lastContact, ai: lastAiInfo
       }
     });
   } catch {}
@@ -1981,7 +2983,16 @@ async function restoreCache(origin) {
     if (c.subdomains.length) renderSubdomains(c.subdomains);
     renderPerf(c.perf);
     lastIsWordPress = c.isWordPress;
+    if (c.plugins) renderWpComponents({ plugins: c.plugins, themes: c.themes || [] });
+    if (c.mixed) renderMixedContent(c.mixed);
+    if (c.robots) renderRobots(c.robots);
+    if (c.pageSpeed) renderPageSpeed(c.pageSpeed);
+    if (c.emailDns) renderEmailDns(c.emailDns);
+    if (c.integrations && c.integrations.length) renderIntegrations(c.integrations);
+    if (c.contact) renderContact(c.contact);
+    if (c.ai) renderAiInfo(c.ai);
     if (c.isWordPress && c.wpLinks.length) renderLinks(c.wpLinks);
+    loadHistory(origin);
     return Math.max(1, Math.round((Date.now() - c.ts) / 60000));
   } catch {
     return 0;
@@ -2004,14 +3015,42 @@ async function runScan() {
   subdomainsEmpty.classList.add("hidden");
   trackersContainer.classList.add("hidden");
   techContainer.classList.add("hidden");
+  integrationsContainer.classList.add("hidden");
+  contactContainer.classList.add("hidden");
+  dnsContainer.classList.add("hidden");
+  aiContainer.classList.add("hidden");
   securityContainer.classList.add("hidden");
   sensitiveList.innerHTML = "";
   cookiesList.innerHTML = "";
   redirectsList.innerHTML = "";
+  pluginsContainer.classList.add("hidden");
+  mixedContainer.classList.add("hidden");
+  robotsContainer.classList.add("hidden");
+  historyContainer.classList.add("hidden");
+  pagespeedContainer.classList.add("hidden");
+  lastWpPlugins = [];
+  lastWpThemes = [];
+  lastMixedContent = [];
+  lastRobots = null;
+  lastPageSpeed = null;
+  lastEmailDns = null;
+  lastIntegrations = [];
+  lastContact = null;
+  lastAiInfo = null;
   tabsEl.classList.add("hidden");
   emptyState.classList.add("hidden");
   rescanBtn.classList.add("hidden");
   copyReportBtn.classList.add("hidden");
+  exportReportBtn.classList.add("hidden");
+  exportHtmlBtn.classList.add("hidden");
+  document.getElementById("report-actions").classList.add("hidden");
+  securityGradeEl.classList.add("hidden");
+  lastSecurityChecks = [];
+  lastSensitiveFiles = [];
+  lastCookies = [];
+  try {
+    await chrome.action.setBadgeText({ text: "" });
+  } catch {}
 
   const origin = await getActiveTabOrigin();
   if (!current()) return;
@@ -2045,6 +3084,12 @@ async function runScan() {
     checkSensitiveFiles(origin).then(guard(renderSensitiveFiles)),
     getCookieFlags(origin).then(guard(renderCookies)),
     scanPerformance().then(guard(renderPerf)),
+    lookupEmailAuth(hostname).then(guard(renderEmailDns)),
+    (async () => {
+      const robotsText = await fetchRobotsRaw(origin);
+      const llms = await checkLlmsTxt(origin);
+      return { aiBots: detectAiBots(robotsText), llms };
+    })().then(guard(renderAiInfo)),
     scanSeo().then(async (data) => {
       if (!current()) return;
       renderSeo(data);
@@ -2060,15 +3105,27 @@ async function runScan() {
     await Promise.allSettled(tasks);
     if (!current()) return;
     await saveCache(origin);
+    await saveHistory(origin);
+    await updateToolbarBadge();
+    loadHistory(origin);
     rescanBtn.classList.remove("hidden");
-    copyReportBtn.classList.remove("hidden");
+    document.getElementById("report-actions").classList.remove("hidden");
   };
 
   const { html: homepageHtml, headers } = await fetchHomepage(origin);
   if (!current()) return;
 
+  // Mescla headers same-origin da página (HSTS etc. que o fetch da
+  // extensão pode esconder). Prioriza o que a página viu.
+  const pageHeaders = await probePageSecurityHeaders();
+  if (!current()) return;
+  Object.keys(pageHeaders).forEach((k) => {
+    if (pageHeaders[k] !== "") headers[k] = pageHeaders[k];
+  });
+
   // Sitemap também é independente: roda mesmo que a detecção de WP falhe.
   tasks.push(discoverSitemaps(origin, homepageHtml).then(guard(renderSitemapList)));
+  tasks.push(fetchRobotsAnalysis(origin).then(guard(renderRobots)));
 
   const [isWordPress, httpsForced] = await Promise.all([
     detectWordPress(origin, homepageHtml),
@@ -2080,7 +3137,14 @@ async function runScan() {
   const techStack = detectTechStack(homepageHtml, headers);
   if (isWordPress) techStack.unshift("WordPress");
   renderTech(techStack);
+  renderIntegrations(detectIntegrations(homepageHtml, headers));
+  renderContact(extractContactInfo(homepageHtml));
   renderSecurity(buildSecurityChecks(headers, httpsForced));
+  renderMixedContent(findMixedContent(homepageHtml, origin));
+
+  if (isWordPress) {
+    renderWpComponents(detectWpComponents(homepageHtml));
+  }
 
   if (!isWordPress) {
     statusEl.className = "status status-not-found";
@@ -2172,7 +3236,10 @@ devBtn.addEventListener("click", () => {
   devPanel.classList.toggle("hidden");
 });
 
+let copyInFlight = false;
 copyReportBtn.addEventListener("click", async () => {
+  if (copyInFlight) return;
+  copyInFlight = true;
   const original = copyReportBtn.textContent;
   try {
     await navigator.clipboard.writeText(buildReport());
@@ -2182,8 +3249,188 @@ copyReportBtn.addEventListener("click", async () => {
   }
   setTimeout(() => {
     copyReportBtn.textContent = original;
+    copyInFlight = false;
   }, 1500);
 });
+
+exportReportBtn.addEventListener("click", async () => {
+  const original = exportReportBtn.textContent;
+  try {
+    const report = buildReport();
+    const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const host = (lastOrigin || "site").replace(/^https?:\/\//, "").replace(/[^a-z0-9.-]+/gi, "-");
+    a.download = `sitexray-${host}-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    exportReportBtn.textContent = "✅ Baixado!";
+  } catch {
+    exportReportBtn.textContent = "Erro ao baixar";
+  }
+  setTimeout(() => {
+    exportReportBtn.textContent = original;
+  }, 1500);
+});
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function buildHtmlReport() {
+  const grade = computeSecurityGrade();
+  const logoData = await new Promise((resolve) => {
+    try {
+      fetch(chrome.runtime.getURL("icons/logo.png"))
+        .then((r) => r.blob())
+        .then((b) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(fr.result);
+          fr.onerror = () => resolve("");
+          fr.readAsDataURL(b);
+        })
+        .catch(() => resolve(""));
+    } catch {
+      resolve("");
+    }
+  });
+
+  const rows = [];
+  const row = (k, v) => {
+    if (v != null && v !== "") rows.push(`<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`);
+  };
+
+  row("Data", new Date().toLocaleString("pt-BR"));
+  row("URL", lastOrigin);
+  row("Nota segurança", grade ? `${grade.grade} (${grade.score}/100)` : "—");
+  row("WordPress", lastIsWordPress ? "detectado" : "não detectado");
+  row("Tecnologia", lastTechStack.join(", ") || "não identificada");
+  if (lastWpThemes.length) row("Tema", lastWpThemes.join(", "));
+  if (lastWpPlugins.length) row("Plugins", lastWpPlugins.join(", "));
+  if (lastSeoData) {
+    row("Title", lastSeoData.title || "ausente");
+    row("Description", lastSeoData.description ? lastSeoData.description.slice(0, 160) : "ausente");
+    row("Canonical", lastSeoData.canonical || "ausente");
+  }
+  if (lastPerf) {
+    if (lastPerf.lcp !== null) row("LCP", (lastPerf.lcp / 1000).toFixed(2) + " s");
+    row("CLS", lastPerf.cls.toFixed(3));
+    if (lastPerf.ttfb) row("TTFB", Math.round(lastPerf.ttfb) + " ms");
+  }
+  if (lastPageSpeed) {
+    ["mobile", "desktop"].forEach((s) => {
+      const p = lastPageSpeed[s];
+      if (p && !p.error && p.score != null) row("PageSpeed " + s, Math.round(p.score * 100) + "/100");
+    });
+  }
+  if (lastTrackers.length) row("Rastreadores", lastTrackers.join(", "));
+  if (lastMixedContent.length) row("Mixed content", lastMixedContent.length + " recurso(s) http");
+  if (lastIntegrations.length) row("Integrações", lastIntegrations.map((i) => i.name).join(", "));
+  if (lastEmailDns) {
+    row("MX", lastEmailDns.mx.join(", ") || "ausente");
+    row("SPF", lastEmailDns.spf || "ausente");
+    row("DMARC", lastEmailDns.dmarc || "ausente");
+  }
+  if (lastContact && lastContact.emails.length) row("E-mails", lastContact.emails.join(", "));
+
+  const secRows = lastSecurityChecks
+    .map((c) => {
+      const optional = c.penalty === 0 && !c.ok;
+      const cls = c.ok || optional ? "ok" : "bad";
+      const label = c.ok ? "OK" : optional ? "—" : "Ausente";
+      return `<li class="${cls}"><span>${escapeHtml(c.label)}</span><b>${label}</b></li>`;
+    })
+    .join("");
+
+  const sens =
+    lastSensitiveFiles.length > 0
+      ? lastSensitiveFiles
+          .map(
+            (f) =>
+              `<li class="bad"><span>${escapeHtml(f.label)}</span><b>${escapeHtml(SEVERITY_LABEL[f.severity] || f.severity)}</b></li>`
+          )
+          .join("")
+      : `<li class="ok"><span>Arquivos sensíveis</span><b>Nenhum</b></li>`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório SiteXray - ${escapeHtml(lastOrigin)}</title>
+<style>
+  body{font-family:ui-monospace,Consolas,monospace;background:#0a0e12;color:#d6e4ec;margin:0;padding:32px;line-height:1.5}
+  .wrap{max-width:820px;margin:0 auto}
+  img.logo{height:36px;margin-bottom:16px}
+  h1{font-size:20px;color:#39ff9e;margin:0 0 4px}
+  .meta{color:#6f8494;font-size:13px;margin-bottom:24px}
+  table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #1e2a35;vertical-align:top}
+  th{color:#6f8494;width:38%;font-weight:600}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:#6f8494;margin:28px 0 10px}
+  ul{list-style:none;padding:0;margin:0}
+  li{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;background:#10161d;border:1px solid #1e2a35;border-radius:3px;margin-bottom:6px;font-size:13px}
+  li.ok{border-left:3px solid #39ff9e}
+  li.bad{border-left:3px solid #ff4d5e}
+  li b{flex-shrink:0}
+  .grade{display:inline-flex;align-items:center;gap:12px;padding:12px 16px;background:#10161d;border:1px solid #1e2a35;border-radius:6px;margin-bottom:20px}
+  .grade span{font-size:40px;font-weight:800;color:#39ff9e}
+  .grade div{font-size:13px;color:#d6e4ec}
+  footer{margin-top:32px;color:#6f8494;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+${logoData ? `<img class="logo" src="${logoData}" alt="SiteXray">` : ""}
+<h1>Relatório SiteXray</h1>
+<div class="meta">${escapeHtml(lastOrigin)} · ${new Date().toLocaleString("pt-BR")}</div>
+${
+  grade
+    ? `<div class="grade"><span>${escapeHtml(grade.grade)}</span><div>Nota de segurança<br>${grade.score}/100</div></div>`
+    : ""
+}
+<table>${rows.join("")}</table>
+<h2>Segurança (headers)</h2>
+<ul>${secRows}</ul>
+<h2>Arquivos sensíveis</h2>
+<ul>${sens}</ul>
+<footer>Gerado por SiteXray · análise passiva, sem testes de exploração.</footer>
+</div>
+</body>
+</html>`;
+}
+
+exportHtmlBtn.addEventListener("click", async () => {
+  const original = exportHtmlBtn.textContent;
+  try {
+    const html = await buildHtmlReport();
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const host = (lastOrigin || "site").replace(/^https?:\/\//, "").replace(/[^a-z0-9.-]+/gi, "-");
+    a.download = `sitexray-${host}-${new Date().toISOString().slice(0, 10)}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    exportHtmlBtn.textContent = "✅ Baixado!";
+  } catch {
+    exportHtmlBtn.textContent = "Erro ao baixar";
+  }
+  setTimeout(() => {
+    exportHtmlBtn.textContent = original;
+  }, 1500);
+});
+
+runPagespeedBtn.addEventListener("click", runPageSpeed);
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {

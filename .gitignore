@@ -1,0 +1,11 @@
+# Binários e chaves — nunca versionar
+*.pem
+*.crx
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
