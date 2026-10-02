@@ -106,13 +106,13 @@ extensão instalada. Mudança sem bump de versão fica invisível pra esse aviso
 | 1.9.2 | `26a695c` | Miniatura e link nas imagens da aba SEO |
 | 1.10.0 | `4cab53c` | Tags `<head>`, dados estruturados (JSON-LD), favicon com download |
 | 1.11.0 | `6078ab8` | Checagens passivas de segurança: arquivos sensíveis, cookies, redirects, mais headers |
-| 1.12.0 | pendente | Side panel (troca de aba refaz o scan) e cache por origem em `chrome.storage.session` (10 min), Web Vitals (LCP/CLS/TTFB), impacto de recursos de terceiros, z-index/opacity no inspetor |
-| 1.13.0 | pendente | Fix HSTS em redirects (mescla headers da cadeia), nota de segurança A–F, exportar relatório `.md` |
-| 1.14.0 | pendente | PageSpeed Insights sob demanda, badge no ícone, histórico por domínio, plugins/tema WP, mixed content, robots.txt, +tech signatures, export `.html` |
-| 1.14.1 | pendente | HSTS via probe same-origin na página (fetch da extensão escondia o header); histórico não duplica em rescan em menos de 2 min |
-| 1.15.0 | pendente | MX/SPF/DMARC via DoH, análise de CSP, integrações (pagamentos/chat/CRM), e-mails + links LGPD, bots de IA no robots + llms.txt, headers COOP/CORP/COEP (sem descontar da nota) |
-| 1.15.1 | pendente | Visual: seções em cards com ícone, abas em pílula fixas, ferramentas de domínio em grade, status com indicador, hover com brilho |
-| 1.16.0 | pendente | Botão "Gerar relatório" (copia prompt pré-setado pra IA + relatório, pedindo ajustes priorizados e impacto); "Gerar relatório" e "Escanear novamente" movidos pro topo (desabilitados durante o scan) |
+| 1.12.0 | `4bdf1d2` | Side panel (troca de aba refaz o scan) e cache por origem em `chrome.storage.session` (10 min), Web Vitals (LCP/CLS/TTFB), impacto de recursos de terceiros, z-index/opacity no inspetor |
+| 1.13.0 | `f8aad38` | Fix HSTS em redirects (mescla headers da cadeia), nota de segurança A–F, exportar relatório `.md` |
+| 1.14.0 | `f8aad38` | PageSpeed Insights sob demanda, badge no ícone, histórico por domínio, plugins/tema WP, mixed content, robots.txt, +tech signatures, export `.html` |
+| 1.14.1 | `f8aad38` | HSTS via probe same-origin na página (fetch da extensão escondia o header); histórico não duplica em rescan em menos de 2 min |
+| 1.15.0 | `f8aad38` | MX/SPF/DMARC via DoH, análise de CSP, integrações (pagamentos/chat/CRM), e-mails + links LGPD, bots de IA no robots + llms.txt, headers COOP/CORP/COEP (sem descontar da nota) |
+| 1.15.1 | `f621ac4` | Visual: seções em cards com ícone, abas em pílula fixas, ferramentas de domínio em grade, status com indicador, hover com brilho |
+| 1.16.0 | `d3107ae` | Botão "Gerar relatório" (copia prompt pré-setado pra IA + relatório, pedindo ajustes priorizados e impacto); "Gerar relatório" e "Escanear novamente" movidos pro topo (desabilitados durante o scan) |
 
 (`980ac78` adicionou o `README.md` sem mudar a versão.)
 
