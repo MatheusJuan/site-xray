@@ -182,6 +182,7 @@ const openAllSubdomainsBtn = document.getElementById("open-all-subdomains-btn");
 const copyReportBtn = document.getElementById("copy-report-btn");
 const exportReportBtn = document.getElementById("export-report-btn");
 const exportHtmlBtn = document.getElementById("export-html-btn");
+const generateReportBtn = document.getElementById("generate-report-btn");
 const securityGradeEl = document.getElementById("security-grade");
 const gradeLetterEl = document.getElementById("grade-letter");
 const gradeLabelEl = document.getElementById("grade-label");
@@ -3039,7 +3040,8 @@ async function runScan() {
   lastAiInfo = null;
   tabsEl.classList.add("hidden");
   emptyState.classList.add("hidden");
-  rescanBtn.classList.add("hidden");
+  rescanBtn.disabled = true;
+  generateReportBtn.disabled = true;
   copyReportBtn.classList.add("hidden");
   exportReportBtn.classList.add("hidden");
   exportHtmlBtn.classList.add("hidden");
@@ -3057,7 +3059,7 @@ async function runScan() {
   if (!origin) {
     statusEl.className = "status status-not-found";
     statusEl.textContent = "Não foi possível ler a aba atual (URL inválida).";
-    rescanBtn.classList.remove("hidden");
+    rescanBtn.disabled = false;
     return;
   }
 
@@ -3108,7 +3110,8 @@ async function runScan() {
     await saveHistory(origin);
     await updateToolbarBadge();
     loadHistory(origin);
-    rescanBtn.classList.remove("hidden");
+    rescanBtn.disabled = false;
+    generateReportBtn.disabled = false;
     document.getElementById("report-actions").classList.remove("hidden");
   };
 
@@ -3251,6 +3254,47 @@ copyReportBtn.addEventListener("click", async () => {
     copyReportBtn.textContent = original;
     copyInFlight = false;
   }, 1500);
+});
+
+// Prompt pré-setado pra colar numa IA junto com o relatório. Pede os ajustes
+// priorizados e o impacto de cada um, pra virar base de proposta/orçamento.
+const AI_REPORT_PROMPT = `Você é um consultor sênior de desenvolvimento web, SEO, performance e segurança. Abaixo está um relatório técnico gerado de forma passiva (só leitura, sem testes ativos) por uma extensão que analisa o site de um cliente. Use SOMENTE os dados do relatório, não invente informação. Se um dado estiver ausente, diga que não foi possível avaliar.
+
+Sua tarefa: identificar o que precisa ser ajustado no site e qual o impacto de cada ajuste. Responda em português do Brasil, em Markdown, nesta estrutura:
+
+1. Resumo executivo: 3 a 5 linhas com o estado geral do site e os 3 maiores riscos ou oportunidades.
+
+2. Ajustes necessários: tabela ordenada por prioridade (Crítico, Alto, Médio, Baixo) com as colunas: Prioridade | Problema encontrado | Como corrigir (passos práticos) | Impacto (segurança, SEO, performance, conversão ou LGPD) | Esforço (baixo, médio, alto).
+
+3. Ganhos rápidos: ajustes que dão para fazer em até 1 hora.
+
+4. O que já está bom: lista curta, para não refazer o que funciona.
+
+5. Pontos para verificar manualmente: itens que o relatório só marca como candidato (ex: Open Redirect) ou que a análise passiva não consegue confirmar.
+
+6. Resumo para o cliente: 1 parágrafo em linguagem simples, sem jargão, explicando o que foi encontrado e o benefício de corrigir.
+
+Regras: seja direto, priorize pelo impacto no negócio, e não proponha testes invasivos nem explore falhas, só correções.`;
+
+function buildAiPrompt() {
+  return `${AI_REPORT_PROMPT}\n\n=== INÍCIO DO RELATÓRIO ===\n${buildReport()}\n=== FIM DO RELATÓRIO ===`;
+}
+
+let generateInFlight = false;
+generateReportBtn.addEventListener("click", async () => {
+  if (generateInFlight) return;
+  generateInFlight = true;
+  const original = generateReportBtn.textContent;
+  try {
+    await navigator.clipboard.writeText(buildAiPrompt());
+    generateReportBtn.textContent = "✅ Copiado! Cole na IA";
+  } catch {
+    generateReportBtn.textContent = "Erro ao copiar";
+  }
+  setTimeout(() => {
+    generateReportBtn.textContent = original;
+    generateInFlight = false;
+  }, 2000);
 });
 
 exportReportBtn.addEventListener("click", async () => {

@@ -62,7 +62,7 @@ extensão-chrome-analise/
         └── logo.png        # logomarca "SITExRAY" do header, 1359x205 RGBA
 ```
 
-Versão atual do manifest: **1.15.1**.
+Versão atual do manifest: **1.16.0**.
 
 Nome de exibição (`manifest.json` `name`): **SiteXray**. A pasta continua
 `wp-link-scanner/` por motivos históricos (era o nome original, "WP Link
@@ -112,6 +112,7 @@ extensão instalada. Mudança sem bump de versão fica invisível pra esse aviso
 | 1.14.1 | pendente | HSTS via probe same-origin na página (fetch da extensão escondia o header); histórico não duplica em rescan em menos de 2 min |
 | 1.15.0 | pendente | MX/SPF/DMARC via DoH, análise de CSP, integrações (pagamentos/chat/CRM), e-mails + links LGPD, bots de IA no robots + llms.txt, headers COOP/CORP/COEP (sem descontar da nota) |
 | 1.15.1 | pendente | Visual: seções em cards com ícone, abas em pílula fixas, ferramentas de domínio em grade, status com indicador, hover com brilho |
+| 1.16.0 | pendente | Botão "Gerar relatório" (copia prompt pré-setado pra IA + relatório, pedindo ajustes priorizados e impacto); "Gerar relatório" e "Escanear novamente" movidos pro topo (desabilitados durante o scan) |
 
 (`980ac78` adicionou o `README.md` sem mudar a versão.)
 
@@ -126,8 +127,10 @@ um botão "Escanear novamente". O conteúdo é organizado em **abas**
 `id` do painel): Resumo, Headers, Imagens, Links, Social, Tags `<head>` e
 Dados Estruturados.
 
-Sempre visível, fora das abas: header (logo + botão Dev), status do scan,
-ferramentas de domínio, barra de abas, botão "Escanear novamente" e botões
+Sempre visível, fora das abas: header (logo + botão Dev), barra de ações do topo
+(`.top-actions`: "Gerar relatório" e "Escanear novamente", desabilitados enquanto o
+scan roda), status do scan,
+ferramentas de domínio, barra de abas e botões
 de relatório (Copiar, `.md`, `.html`).
 
 Todo o conteúdo dentro das abas é **independente entre si**. Nenhuma seção
@@ -169,8 +172,12 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
   redirect), resumo de SEO on-page (title, description, canonical, favicon,
   JSON-LD, H1, imagens sem ALT, links, links internos quebrados) e sitemaps
   e subdomínios encontrados. Usa `navigator.clipboard.writeText`, pronto pra
-  colar em orçamento/proposta. Aparece junto com "Escanear novamente" quando
+  colar em orçamento/proposta. Aparece junto com os botões de exportação quando
   o scan termina.
+- **Gerar relatório** (topo): `buildAiPrompt()` copia `AI_REPORT_PROMPT` + `buildReport()` entre
+  marcadores. O prompt pede, em PT-BR e só com os dados do relatório: resumo executivo,
+  tabela de ajustes por prioridade com como corrigir, impacto e esforço, ganhos rápidos,
+  o que está bom, pontos a verificar manualmente e resumo pro cliente. Cola numa IA.
 
 ### Aba Visão Geral
 

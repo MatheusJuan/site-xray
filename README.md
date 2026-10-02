@@ -15,7 +15,8 @@ sem abrir dez ferramentas diferentes.
 **Sempre visível**
 - Ferramentas de domínio: WHOIS (via registro.br), DNS Checker, sitemap
   padrão e busca no Google com `site:`
-- Botões de relatório: Copiar texto, baixar `.md` e baixar `.html` (com logo)
+- Botão "Gerar relatório" no topo: copia o relatório com um prompt pronto pra colar numa IA, que devolve os ajustes por prioridade e o impacto de cada um
+- Botões de relatório no rodapé: Copiar texto, baixar `.md` e baixar `.html` (com logo)
 - Badge no ícone da extensão com a contagem de achados críticos/atenção
 - Botão "Dev": mostra a versão instalada, link do repositório e avisa
   quando existe uma versão mais nova disponível
@@ -92,7 +93,7 @@ permissão antiga.
 2. Clique no ícone da extensão na barra do navegador
 3. O scan roda sozinho ao abrir o painel lateral e refaz ao trocar de aba ou navegar
 4. Navegue pelas abas (Visão Geral, Segurança, SEO, Element Info)
-5. Use os botões no rodapé: Copiar, baixar `.md` ou baixar `.html`
+5. Clique em "Gerar relatório" (topo) e cole numa IA pra receber os ajustes e impactos, ou use os botões do rodapé: Copiar, baixar `.md` ou baixar `.html`
 
 ## Stack
 
