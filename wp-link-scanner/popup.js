@@ -198,6 +198,7 @@ const techGroups = document.getElementById("tech-groups");
 const techCount = document.getElementById("tech-count");
 const techEmpty = document.getElementById("tech-empty");
 const trackersEmpty = document.getElementById("trackers-empty");
+const deepHintEl = document.getElementById("deep-hint");
 const metaView = document.getElementById("meta-view");
 const googleView = document.getElementById("google-view");
 const perfContainer = document.getElementById("perf-container");
@@ -251,6 +252,9 @@ let lastTechStack = [];
 let lastTechDetails = [];
 let lastTrackingRaw = null;
 let lastTracking = null;
+let lastDeepDone = false;
+let lastHeaders = null;
+let lastHttpsForced = null;
 let lastSecurityChecks = [];
 let lastSensitiveFiles = [];
 let lastCookies = [];
@@ -352,6 +356,24 @@ async function fetchHomepage(origin) {
     } catch {
       return { html: null, headers: {} };
     }
+  }
+}
+
+// HTML renderizado da aba, lido do DOM: serve a análise leve sem pedir nada ao site.
+async function getPageHtml() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) return null;
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const h = document.documentElement.outerHTML;
+        return h.length > 1500000 ? h.slice(0, 1500000) : h;
+      }
+    });
+    return result || null;
+  } catch {
+    return null;
   }
 }
 
@@ -523,12 +545,21 @@ function buildSecurityChecks(headers, httpsForced) {
     return { label: h.label, ok: present, note, penalty };
   });
 
-  checks.push({
-    label: "HTTPS forçado",
-    ok: httpsForced,
-    note: httpsForced ? "http:// redireciona para https://." : "http:// não redireciona para https://.",
-    penalty: 12
-  });
+  if (httpsForced === null) {
+    checks.push({
+      label: "HTTPS forçado",
+      ok: false,
+      note: "Não verificado na análise leve (rode a análise completa).",
+      penalty: 0
+    });
+  } else {
+    checks.push({
+      label: "HTTPS forçado",
+      ok: httpsForced,
+      note: httpsForced ? "http:// redireciona para https://." : "http:// não redireciona para https://.",
+      penalty: 12
+    });
+  }
 
   if (csp) {
     const issues = analyzeCspIssues(csp);
@@ -597,7 +628,7 @@ function updateSecurityGrade() {
     g.grade === "B" ? "Bom" :
     g.grade === "C" ? "Regular" :
     g.grade === "D" ? "Fraco" : "Crítico";
-  gradeScoreEl.textContent = g.score + "/100";
+  gradeScoreEl.textContent = g.score + "/100" + (lastDeepDone ? "" : " (parcial)");
 }
 
 // Lê só o primeiro chunk do corpo (até maxBytes) e cancela o resto, pra não
@@ -664,9 +695,10 @@ function findRedirectCandidates(links, origin) {
   return found;
 }
 
-async function detectWordPress(origin, homepageHtml) {
+async function detectWordPress(origin, homepageHtml, allowFetch = true) {
   const signals = ["wp-content", "wp-includes", "wp-json", "content=\"WordPress"];
   if (homepageHtml && signals.some((s) => homepageHtml.includes(s))) return true;
+  if (!allowFetch) return false;
 
   // Fallback: confirma direto pela raiz da REST API.
   try {
@@ -2792,6 +2824,11 @@ function buildReport() {
   const lines = [];
   lines.push(`Relatório SiteXray - ${lastOrigin}`);
   lines.push(`Data: ${new Date().toLocaleDateString("pt-BR")}`);
+  lines.push(
+    lastDeepDone
+      ? "Análise: completa"
+      : "Análise: leve (só leitura da página aberta). Itens marcados como não verificado não foram testados."
+  );
   lines.push("");
   if (lastTechDetails.length > 0) {
     lines.push(`Tecnologias detectadas (${lastTechDetails.length}):`);
@@ -2878,7 +2915,7 @@ function buildReport() {
   lines.push("");
   const grade = computeSecurityGrade();
   if (grade) {
-    lines.push(`Nota de segurança: ${grade.grade} (${grade.score}/100)`);
+    lines.push(`Nota de segurança: ${grade.grade} (${grade.score}/100${lastDeepDone ? "" : ", parcial: sem arquivos expostos nem HTTPS forçado"})`);
     lines.push("");
   }
   lines.push("Segurança:");
@@ -2890,8 +2927,10 @@ function buildReport() {
   if (lastSensitiveFiles.length > 0) {
     lines.push("Arquivos sensíveis expostos:");
     lastSensitiveFiles.forEach((f) => lines.push(`- [${SEVERITY_LABEL[f.severity]}] ${f.label} - ${f.risk}`));
-  } else {
+  } else if (lastDeepDone) {
     lines.push("Arquivos sensíveis expostos: nenhum encontrado nos caminhos testados");
+  } else {
+    lines.push("Arquivos sensíveis expostos: não verificado (análise leve)");
   }
 
   const weakCookies = lastCookies.filter((c) => !c.secure || !(c.sameSite === "lax" || c.sameSite === "strict"));
@@ -2929,7 +2968,7 @@ function buildReport() {
     lines.push("Sitemaps encontrados:");
     lastSitemapResults.forEach((r) => lines.push(`- ${r.url}`));
   } else {
-    lines.push("Sitemap: nenhum encontrado");
+    lines.push(lastDeepDone ? "Sitemap: nenhum encontrado" : "Sitemap: não verificado (análise leve)");
   }
 
   lines.push("");
@@ -2937,7 +2976,7 @@ function buildReport() {
     lines.push(`Subdomínios encontrados via crt.sh (${lastSubdomains.length}):`);
     lastSubdomains.forEach((name) => lines.push(`- ${name}`));
   } else {
-    lines.push("Subdomínios: nenhum encontrado via crt.sh");
+    lines.push(lastDeepDone ? "Subdomínios: nenhum encontrado via crt.sh" : "Subdomínios: não verificado (análise leve)");
   }
 
   if (lastEmailDns) {
@@ -2983,7 +3022,7 @@ async function saveCache(origin) {
       [cacheKey(origin)]: {
         ts: Date.now(),
         trackers: lastTrackers, tech: lastTechStack, techDetails: lastTechDetails,
-        trackingRaw: lastTrackingRaw, security: lastSecurityChecks,
+        trackingRaw: lastTrackingRaw, headers: lastHeaders, httpsForced: lastHttpsForced, deep: lastDeepDone, security: lastSecurityChecks,
         sensitive: lastSensitiveFiles, cookies: lastCookies, redirects: lastRedirectCandidates,
         seo: lastSeoData, sitemaps: lastSitemapResults, subdomains: lastSubdomains,
         perf: lastPerf, isWordPress: lastIsWordPress, wpLinks: lastFoundResults,
@@ -3003,26 +3042,29 @@ async function restoreCache(origin) {
     const c = (await chrome.storage.session.get(key))[key];
     if (!c || Date.now() - c.ts > CACHE_TTL_MS) return 0;
     renderTrackers(c.trackers);
+    lastDeepDone = !!c.deep;
+    lastHeaders = c.headers || null;
+    lastHttpsForced = c.httpsForced === undefined ? null : c.httpsForced;
     renderTech(c.techDetails && c.techDetails.length ? c.techDetails : legacyTechItems(c.tech));
     if (c.security.length) renderSecurity(c.security);
-    renderSensitiveFiles(c.sensitive);
+    if (c.deep) renderSensitiveFiles(c.sensitive);
     renderCookies(c.cookies);
     if (c.trackingRaw) renderTracking(c.trackingRaw);
     renderRedirectCandidates(c.redirects);
     if (c.seo) renderSeo(c.seo);
-    if (c.sitemaps.length) renderSitemapList(c.sitemaps);
-    if (c.subdomains.length) renderSubdomains(c.subdomains);
+    if (c.deep && c.sitemaps.length) renderSitemapList(c.sitemaps);
+    if (c.deep && c.subdomains.length) renderSubdomains(c.subdomains);
     renderPerf(c.perf);
     lastIsWordPress = c.isWordPress;
     if (c.plugins) renderWpComponents({ plugins: c.plugins, themes: c.themes || [] });
     if (c.mixed) renderMixedContent(c.mixed);
-    if (c.robots) renderRobots(c.robots);
+    if (c.deep && c.robots) renderRobots(c.robots);
     if (c.pageSpeed) renderPageSpeed(c.pageSpeed);
-    if (c.emailDns) renderEmailDns(c.emailDns);
+    if (c.deep && c.emailDns) renderEmailDns(c.emailDns);
     if (c.integrations && c.integrations.length) renderIntegrations(c.integrations);
     if (c.contact) renderContact(c.contact);
-    if (c.ai) renderAiInfo(c.ai);
-    if (c.isWordPress && c.wpLinks.length) renderLinks(c.wpLinks);
+    if (c.deep && c.ai) renderAiInfo(c.ai);
+    if (c.deep && c.isWordPress && c.wpLinks.length) renderLinks(c.wpLinks);
     loadHistory(origin);
     return Math.max(1, Math.round((Date.now() - c.ts) / 60000));
   } catch {
@@ -3030,13 +3072,17 @@ async function restoreCache(origin) {
   }
 }
 
-async function runScan() {
+// deep=false (automático, a cada navegação): só lê a página aberta e o cache.
+// Único pedido ao site: 1 GET da home por origem a cada 10 min, pra ler headers.
+// deep=true (botão "Análise completa"): consulta o site e serviços externos
+// (arquivos sensíveis, sitemap, robots, subdomínios, DNS, status dos links).
+async function runScan(deep = false) {
   const id = ++scanId;
   const current = () => id === scanId;
   const guard = (fn) => (v) => { if (current()) fn(v); };
 
   statusEl.className = "status status-checking";
-  statusEl.textContent = "Verificando o site...";
+  statusEl.textContent = deep ? "Análise completa em andamento..." : "Lendo a página...";
   perfContainer.classList.add("hidden");
   thirdPartyContainer.classList.add("hidden");
   linksContainer.classList.add("hidden");
@@ -3087,6 +3133,13 @@ async function runScan() {
   lastSecurityChecks = [];
   lastSensitiveFiles = [];
   lastCookies = [];
+  lastSitemapResults = [];
+  lastSubdomains = [];
+  lastFoundResults = [];
+  lastDeepDone = false;
+  lastHeaders = null;
+  lastHttpsForced = null;
+  deepHintEl.classList.add("hidden");
   try {
     await chrome.action.setBadgeText({ text: "" });
   } catch {}
@@ -3115,37 +3168,44 @@ async function runScan() {
   // Trackers/pixels, subdomínios e SEO on-page são verificados independente do site ser WordPress ou não.
   const cached = await restoreCache(origin);
   if (!current()) return;
-  if (cached) statusEl.textContent = `Verificando o site... (mostrando resultado salvo há ${cached} min)`;
+  if (cached) statusEl.textContent += ` (mostrando resultado salvo há ${cached} min)`;
+  if (deep) lastDeepDone = true;
+  else if (!lastDeepDone) showDeepPlaceholders();
 
   const tasks = [
     detectTrackers().then(guard(renderTrackers)),
     collectTracking(TRACKING_DELAY_MS).then(guard(renderTracking)),
-    discoverSubdomains(hostname).then(guard(renderSubdomains)),
-    checkSensitiveFiles(origin).then(guard(renderSensitiveFiles)),
     getCookieFlags(origin).then(guard(renderCookies)),
     scanPerformance().then(guard(renderPerf)),
-    lookupEmailAuth(hostname).then(guard(renderEmailDns)),
-    (async () => {
-      const robotsText = await fetchRobotsRaw(origin);
-      const llms = await checkLlmsTxt(origin);
-      return { aiBots: detectAiBots(robotsText), llms };
-    })().then(guard(renderAiInfo)),
     scanSeo().then(async (data) => {
       if (!current()) return;
       renderSeo(data);
       renderRedirectCandidates(data ? findRedirectCandidates(data.links, origin) : []);
-      if (data && data.links.length > 0) {
+      if (deep && data && data.links.length > 0) {
         await checkLinkStatuses(data.links, origin);
         if (current()) renderSeoLinks(data.links);
       }
     })
   ];
+  if (deep) {
+    tasks.push(
+      discoverSubdomains(hostname).then(guard(renderSubdomains)),
+      checkSensitiveFiles(origin).then(guard(renderSensitiveFiles)),
+      lookupEmailAuth(hostname).then(guard(renderEmailDns)),
+      (async () => {
+        const robotsText = await fetchRobotsRaw(origin);
+        const llms = await checkLlmsTxt(origin);
+        return { aiBots: detectAiBots(robotsText), llms };
+      })().then(guard(renderAiInfo))
+    );
+  }
 
   const finish = async () => {
     await Promise.allSettled(tasks);
     if (!current()) return;
+    deepHintEl.classList.toggle("hidden", lastDeepDone);
     await saveCache(origin);
-    await saveHistory(origin);
+    if (deep) await saveHistory(origin);
     await updateToolbarBadge();
     loadHistory(origin);
     rescanBtn.disabled = false;
@@ -3153,34 +3213,47 @@ async function runScan() {
     document.getElementById("report-actions").classList.remove("hidden");
   };
 
-  const { html: homepageHtml, headers } = await fetchHomepage(origin);
-  if (!current()) return;
+  let homepageHtml;
+  let headers;
+  if (deep) {
+    ({ html: homepageHtml, headers } = await fetchHomepage(origin));
+    if (!current()) return;
 
-  // Mescla headers same-origin da página (HSTS etc. que o fetch da
-  // extensão pode esconder). Prioriza o que a página viu.
-  const pageHeaders = await probePageSecurityHeaders();
-  if (!current()) return;
-  Object.keys(pageHeaders).forEach((k) => {
-    if (pageHeaders[k] !== "") headers[k] = pageHeaders[k];
-  });
+    // Mescla headers same-origin da página (HSTS etc. que o fetch da
+    // extensão pode esconder). Prioriza o que a página viu.
+    const pageHeaders = await probePageSecurityHeaders();
+    if (!current()) return;
+    Object.keys(pageHeaders).forEach((k) => {
+      if (pageHeaders[k] !== "") headers[k] = pageHeaders[k];
+    });
+  } else {
+    homepageHtml = await getPageHtml();
+    if (!current()) return;
+    headers = lastHeaders || (await probePageSecurityHeaders());
+    if (!current()) return;
+  }
+  lastHeaders = Object.keys(headers).length ? headers : null;
 
-  // Sitemap também é independente: roda mesmo que a detecção de WP falhe.
-  tasks.push(discoverSitemaps(origin, homepageHtml).then(guard(renderSitemapList)));
-  tasks.push(fetchRobotsAnalysis(origin).then(guard(renderRobots)));
+  if (deep) {
+    // Sitemap também é independente: roda mesmo que a detecção de WP falhe.
+    tasks.push(discoverSitemaps(origin, homepageHtml).then(guard(renderSitemapList)));
+    tasks.push(fetchRobotsAnalysis(origin).then(guard(renderRobots)));
+  }
 
   const [isWordPress, httpsForced] = await Promise.all([
-    detectWordPress(origin, homepageHtml),
-    checkHttpsForced(origin)
+    detectWordPress(origin, homepageHtml, deep),
+    deep ? checkHttpsForced(origin) : Promise.resolve(lastHttpsForced)
   ]);
   if (!current()) return;
   lastIsWordPress = isWordPress;
+  lastHttpsForced = httpsForced;
 
   // Base do Wappalyzer indisponível (sem rede e sem cópia): cai pras
   // assinaturas próprias, que não dependem de download.
   const legacyStack = detectTechStack(homepageHtml, headers);
   if (isWordPress) legacyStack.unshift("WordPress");
   tasks.push(
-    detectTechnologies({ origin, hostname, headers, homepageHtml, forceNames: isWordPress ? ["WordPress"] : [] })
+    detectTechnologies({ origin, hostname, headers, homepageHtml, withDns: deep, forceNames: isWordPress ? ["WordPress"] : [] })
       .then(guard((items) => renderTech(items || legacyTechItems(legacyStack))))
   );
   renderIntegrations(detectIntegrations(homepageHtml, headers));
@@ -3195,23 +3268,28 @@ async function runScan() {
   if (!isWordPress) {
     statusEl.className = "status status-not-found";
     statusEl.textContent = "Este site não parece ser WordPress.";
-    lastFoundResults = [];
     await finish();
     return;
   }
 
   statusEl.className = "status status-found";
-  statusEl.textContent = "WordPress detectado. Checando links públicos...";
-
-  const pathResults = await Promise.all(CANDIDATE_PATHS.map((entry) => checkPath(origin, entry)));
-  if (!current()) return;
-
+  if (deep) {
+    statusEl.textContent = "WordPress detectado. Checando links públicos...";
+    const pathResults = await Promise.all(CANDIDATE_PATHS.map((entry) => checkPath(origin, entry)));
+    if (!current()) return;
+    renderLinks(dedupeByUrl(pathResults));
+  }
   statusEl.textContent = "WordPress detectado.";
-  renderLinks(dedupeByUrl(pathResults));
   await finish();
 }
 
-rescanBtn.addEventListener("click", runScan);
+function showDeepPlaceholders() {
+  sensitiveList.innerHTML = "";
+  addEmptyItem(sensitiveList, "Não verificado na análise leve. Rode a análise completa para testar arquivos expostos (.env, .git, backups).");
+}
+
+
+rescanBtn.addEventListener("click", () => runScan(true));
 
 whoisLinkEl.addEventListener("click", (e) => {
   e.preventDefault();
@@ -3317,7 +3395,7 @@ Sua tarefa: identificar o que precisa ser ajustado no site e qual o impacto de c
 
 6. Resumo para o cliente: 1 parágrafo em linguagem simples, sem jargão, explicando o que foi encontrado e o benefício de corrigir.
 
-Regras: seja direto, priorize pelo impacto no negócio, e não proponha testes invasivos nem explore falhas, só correções.`;
+Regras: itens marcados como "não verificado" não foram testados, trate como desconhecidos e nunca como OK. Seja direto, priorize pelo impacto no negócio, e não proponha testes invasivos nem explore falhas, só correções.`;
 
 function buildAiPrompt() {
   return `${AI_REPORT_PROMPT}\n\n=== INÍCIO DO RELATÓRIO ===\n${buildReport()}\n=== FIM DO RELATÓRIO ===`;
@@ -3396,7 +3474,8 @@ async function buildHtmlReport() {
 
   row("Data", new Date().toLocaleString("pt-BR"));
   row("URL", lastOrigin);
-  row("Nota segurança", grade ? `${grade.grade} (${grade.score}/100)` : "—");
+  row("Análise", lastDeepDone ? "completa" : "leve (sem consultas ao site)");
+  row("Nota segurança", grade ? `${grade.grade} (${grade.score}/100${lastDeepDone ? "" : ", parcial"})` : "—");
   row("WordPress", lastIsWordPress ? "detectado" : "não detectado");
   row("Tecnologia", lastTechStack.join(", ") || "não identificada");
   if (lastWpThemes.length) row("Tema", lastWpThemes.join(", "));
@@ -3453,7 +3532,7 @@ async function buildHtmlReport() {
               `<li class="bad"><span>${escapeHtml(f.label)}</span><b>${escapeHtml(SEVERITY_LABEL[f.severity] || f.severity)}</b></li>`
           )
           .join("")
-      : `<li class="ok"><span>Arquivos sensíveis</span><b>Nenhum</b></li>`;
+      : `<li class="ok"><span>Arquivos sensíveis</span><b>${lastDeepDone ? "Nenhum" : "Não verificado"}</b></li>`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

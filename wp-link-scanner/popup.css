@@ -1152,3 +1152,14 @@ a:focus-visible {
 .finding-ok {
   border-left-color: var(--accent);
 }
+
+.deep-hint {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(47, 224, 255, 0.35);
+  border-radius: var(--radius);
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font-size: 10.5px;
+  line-height: 1.45;
+}

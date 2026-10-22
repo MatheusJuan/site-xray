@@ -542,14 +542,15 @@ async function fetchTechDns(hostname) {
 }
 
 // Ponto de entrada: retorna itens, ou null se a base não está disponível.
-async function detectTechnologies({ origin, hostname, headers, homepageHtml, forceNames }) {
+// withDns consulta DoH (dns.google, que recebe o hostname): só na análise completa.
+async function detectTechnologies({ origin, hostname, headers, homepageHtml, forceNames, withDns }) {
   try {
     const db = await loadTechDb();
     if (!db) return null;
     const [signals, cookies, dns] = await Promise.all([
       collectTechSignals(db),
       getDetectionCookies(origin),
-      fetchTechDns(hostname)
+      withDns ? fetchTechDns(hostname) : Promise.resolve({})
     ]);
     // Página que bloqueia injeção (ex: Chrome Web Store): cai pro HTML baixado.
     const S = signals || {

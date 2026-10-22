@@ -100,7 +100,7 @@ permissão antiga.
 
 1. Abra o site que quer analisar
 2. Clique no ícone da extensão na barra do navegador
-3. O scan roda sozinho ao abrir o painel lateral e refaz ao trocar de aba ou navegar
+3. A análise leve roda sozinha ao abrir o painel e ao trocar de aba ou navegar: só lê a página aberta, sem sondar o site. Clique em "Análise completa" para testar arquivos expostos, sitemap, robots, subdomínios, DNS e links
 4. Navegue pelas abas (Visão Geral, Segurança, SEO, Element Info)
 5. Clique em "Gerar relatório" (topo) e cole numa IA pra receber os ajustes e impactos, ou use os botões do rodapé: Copiar, baixar `.md` ou baixar `.html`
 

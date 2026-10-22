@@ -21,11 +21,15 @@
 
   <div class="top-actions">
     <button id="generate-report-btn" class="rescan-btn copy-btn" disabled>🤖 Gerar relatório</button>
-    <button id="rescan" class="rescan-btn" disabled>🔄 Escanear novamente</button>
+    <button id="rescan" class="rescan-btn" disabled title="Consulta o site e serviços externos: arquivos expostos, sitemap, robots, subdomínios, DNS e status dos links">🔍 Análise completa</button>
   </div>
 
   <div id="status" class="status status-checking">
     Verificando o site...
+  </div>
+
+  <div id="deep-hint" class="deep-hint hidden">
+    Análise leve: só lê a página aberta, sem consultar o site. Clique em <b>Análise completa</b> para testar arquivos expostos, sitemap, robots, subdomínios, DNS e links.
   </div>
 
   <div id="domain-tools" class="domain-tools hidden">

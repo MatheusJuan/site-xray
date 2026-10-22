@@ -66,7 +66,7 @@ extensão-chrome-analise/
         └── logo.png        # logomarca "SITExRAY" do header, 1359x205 RGBA
 ```
 
-Versão atual do manifest: **1.17.0**.
+Versão atual do manifest: **1.18.0**.
 
 Nome de exibição (`manifest.json` `name`): **SiteXray**. A pasta continua
 `wp-link-scanner/` por motivos históricos (era o nome original, "WP Link
@@ -118,13 +118,16 @@ extensão instalada. Mudança sem bump de versão fica invisível pra esse aviso
 | 1.15.1 | `f621ac4` | Visual: seções em cards com ícone, abas em pílula fixas, ferramentas de domínio em grade, status com indicador, hover com brilho |
 | 1.16.0 | `d3107ae` | Botão "Gerar relatório" (copia prompt pré-setado pra IA + relatório, pedindo ajustes priorizados e impacto); "Gerar relatório" e "Escanear novamente" movidos pro topo (desabilitados durante o scan) |
 | 1.17.0 | pendente | Aba Stack: motor de tecnologias no formato Wappalyzer (base do fork enthec baixada em runtime, ~7600 técnicas, versão, confiança, categorias, ícones), visão detalhada de Meta Pixel (IDs, eventos, diagnóstico), GTM (containers, dataLayer, Consent Mode) e GA4/UA/Google Ads (IDs, hits, duplicidade), tracking no relatório e no prompt da IA |
+| 1.18.0 | pendente | Análise leve automática (só lê a página, sem consultar o site) x análise completa sob clique (arquivos sensíveis, sitemap, robots, subdomínios, DNS, status dos links, HTTPS forçado, caminhos WP); nota e relatório marcam o que não foi verificado |
 
 (`980ac78` adicionou o `README.md` sem mudar a versão.)
 
 ## Estrutura do popup
 
-O popup roda `runScan()` automaticamente ao abrir (`DOMContentLoaded`) e tem
-um botão "Escanear novamente". O conteúdo é organizado em **abas**
+O painel roda `runScan()` automaticamente ao abrir (`DOMContentLoaded`) e a
+cada troca de aba ou navegação, em modo **leve** (ver "Análise leve x
+completa"); o botão "Análise completa" roda `runScan(true)`. O conteúdo é
+organizado em **abas**
 (`.tab-btn` / `.tab-panel`, trocadas via JS puro, sem lib, dirigidas por
 `data-tab` que casa com `id="tab-<nome>"`): **Visão Geral**, **Segurança**,
 **SEO** e **Element Info**. Dentro de SEO existem 7 sub-abas
@@ -133,7 +136,7 @@ um botão "Escanear novamente". O conteúdo é organizado em **abas**
 Dados Estruturados.
 
 Sempre visível, fora das abas: header (logo + botão Dev), barra de ações do topo
-(`.top-actions`: "Gerar relatório" e "Escanear novamente", desabilitados enquanto o
+(`.top-actions`: "Gerar relatório" e "Análise completa", desabilitados enquanto o
 scan roda), status do scan,
 ferramentas de domínio, barra de abas e botões
 de relatório (Copiar, `.md`, `.html`).
@@ -143,6 +146,37 @@ depende da detecção de WordPress ter dado certo, exceto os links sensíveis
 de WordPress dentro de Visão Geral. Cada scan dispara suas consultas em
 paralelo, sem esperar uma pela outra, e cada bloco renderiza quando a sua
 resposta chega.
+
+### Análise leve x completa
+
+O scan automático dispara a cada troca de aba e a cada página carregada, então
+ele **não pode sondar o site**: na v1.17.0 ele rodava dezenas de requisições
+(`/.env`, `/.git/config`, sitemaps, links...) em qualquer site navegado com o
+painel aberto, o que parece varredura e pode derrubar o IP/perfil pra 403 ou
+captcha (aconteceu num `google.com/search`). Por isso `runScan(deep = false)` é o
+padrão e só o botão chama `runScan(true)`.
+
+- **Leve** (automática): tudo que lê a página aberta ou a máquina local.
+  Rastreadores, tracking (Meta/GTM/GA), performance, SEO on-page, cookies
+  (`chrome.cookies`), tecnologias (sinais da página, sem DNS), integrações,
+  contato, mixed content e plugins WP (HTML renderizado da aba, via
+  `getPageHtml`, não baixado). Único pedido ao site: 1 GET da home por origem
+  (`probePageSecurityHeaders`) pra ler headers, reaproveitado do cache
+  (`lastHeaders`, 10 min). Nada vai pra serviço externo além do download da
+  base de tecnologias e dos ícones (GitHub).
+- **Completa** (botão): leve mais tudo que consulta o site ou terceiros:
+  `fetchHomepage` com a cadeia de redirects, HTTPS forçado, arquivos sensíveis,
+  caminhos WP (`checkPath`), sitemaps, robots.txt, `llms.txt`, status dos links
+  internos, subdomínios (crt.sh recebe o hostname), DNS (dns.google recebe o
+  hostname) e a detecção de tecnologias por DNS.
+- **Estado**: `lastDeepDone` (cacheado em `chrome.storage.session` junto com
+  `lastHttpsForced`, 10 min) diz se os resultados "ativos" valem. Voltar a um
+  site analisado em até 10 min restaura tudo, inclusive os resultados da
+  completa, sem novas requisições.
+- **Sem falsa garantia**: o que não rodou aparece como "não verificado"
+  (lista de arquivos sensíveis, HTTPS forçado com penalidade 0, nota marcada
+  "parcial", banner `#deep-hint`, relatório e HTML marcando "Análise: leve"). O
+  histórico por domínio só grava depois de uma análise completa.
 
 ### Header e botão Dev
 
@@ -534,7 +568,7 @@ fecha ao clicar na página. O botão "Ativar inspector de elementos" injeta
   `renderSeoImages`, `renderSeoLinks`, `renderSeoSocial`, `renderFavicon`,
   `renderSeoHeadTable`, `renderSeoJsonLd`), helpers `addKvRow`,
   `addEmptyItem`, `subdomainUrl`.
-- **Orquestração**: `buildReport()` e `runScan()` (reseta a UI, resolve
+- **Orquestração**: `buildReport()` e `runScan(deep)` (reseta a UI, resolve
   origin, dispara as consultas independentes em paralelo, depois detecta WP
   e mostra os botões finais). Listeners de clique e de abas no final do
   arquivo.
