@@ -51,18 +51,22 @@ público e gratuito (o próprio site analisado, `crt.sh`, `raw.githubusercontent
 extensão-chrome-analise/
 ├── CLAUDE.md               # este arquivo (documentação técnica completa)
 ├── README.md               # apresentação, instalação e uso, voltado ao usuário final
+├── tools/check-engine.js   # checagem sem navegador do motor de tecnologias e do tracking
 └── wp-link-scanner/        # a extensão (é esta pasta que se carrega no Chrome)
     ├── manifest.json       # MV3, permissions: activeTab, scripting, cookies, sidePanel, storage;
     │                       # host_permissions: http://*/* e https://*/*
     ├── popup.html          # estrutura do popup (~180 linhas)
     ├── popup.css           # tema visual dark "hacker" (~670 linhas)
-    ├── popup.js            # toda a lógica (~2000 linhas, arquivo único)
+    ├── popup.js            # lógica principal e orquestração do scan (~3500 linhas)
+    ├── tech-engine.js      # motor de tecnologias (formato Wappalyzer) + render dos grupos
+    ├── tracking.js         # Meta Pixel, GTM, GA4/UA, Google Ads: coleta, análise, render
+    ├── background.js       # service worker: abre o side panel ao clicar no ícone
     └── icons/
         ├── icon.png        # ícone da extensão, 519x519 RGBA
         └── logo.png        # logomarca "SITExRAY" do header, 1359x205 RGBA
 ```
 
-Versão atual do manifest: **1.16.0**.
+Versão atual do manifest: **1.17.0**.
 
 Nome de exibição (`manifest.json` `name`): **SiteXray**. A pasta continua
 `wp-link-scanner/` por motivos históricos (era o nome original, "WP Link
@@ -113,6 +117,7 @@ extensão instalada. Mudança sem bump de versão fica invisível pra esse aviso
 | 1.15.0 | `f8aad38` | MX/SPF/DMARC via DoH, análise de CSP, integrações (pagamentos/chat/CRM), e-mails + links LGPD, bots de IA no robots + llms.txt, headers COOP/CORP/COEP (sem descontar da nota) |
 | 1.15.1 | `f621ac4` | Visual: seções em cards com ícone, abas em pílula fixas, ferramentas de domínio em grade, status com indicador, hover com brilho |
 | 1.16.0 | `d3107ae` | Botão "Gerar relatório" (copia prompt pré-setado pra IA + relatório, pedindo ajustes priorizados e impacto); "Gerar relatório" e "Escanear novamente" movidos pro topo (desabilitados durante o scan) |
+| 1.17.0 | pendente | Aba Stack: motor de tecnologias no formato Wappalyzer (base do fork enthec baixada em runtime, ~7600 técnicas, versão, confiança, categorias, ícones), visão detalhada de Meta Pixel (IDs, eventos, diagnóstico), GTM (containers, dataLayer, Consent Mode) e GA4/UA/Google Ads (IDs, hits, duplicidade), tracking no relatório e no prompt da IA |
 
 (`980ac78` adicionou o `README.md` sem mudar a versão.)
 
@@ -210,31 +215,9 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
    - Entradas com wildcard (`*.dominio.com`) aparecem como texto, e o link
      abre o host sem o `*.` (`subdomainUrl`).
 
-3. **Rastreadores e pixels na página**: usa `chrome.scripting.executeScript`
-   com `world: "MAIN"` na aba ativa (`scanPageForTrackers`), lendo a página
-   já renderizada, incluindo scripts injetados dinamicamente. Detecta via
-   `window.*` globals e/ou `<script src>`: Meta Pixel, Google Tag Manager,
-   Google Analytics, Google Ads, TikTok Pixel, Pinterest Tag, Snapchat Pixel,
-   LinkedIn Insight Tag, Twitter/X Pixel, Hotjar, Microsoft Clarity, Jetpack
-   Stats, HubSpot, Matomo/Piwik, Google reCAPTCHA, Criteo, Taboola,
-   Outbrain. Badges simples, sem severidade.
+3. **Tecnologias e rastreadores** foram pra aba **Stack** (ver "Aba Stack").
 
-4. **Tecnologia detectada**: fingerprint próprio (`TECH_SIGNATURES`, tipo
-   Wappalyzer caseiro, sem dependência externa) sobre o HTML estático da home
-   e os headers de resposta, ambos vindos do mesmo `fetchHomepage`:
-   - CMS/page builder: Shopify, Wix, Squarespace, Webflow, Drupal, Joomla.
-   - Framework JS: Next.js, Nuxt.js, Angular, Vue.js (cobertura parcial: só
-     HTML estático, sem executar JS; React puro e Svelte não têm marcador
-     confiável e ficaram de fora).
-   - E-commerce: WooCommerce, PrestaShop, Magento.
-   - CSS framework: Bootstrap (Tailwind ficou de fora, classes utilitárias
-     dão falso positivo e o build costuma removê-las).
-   - CDN/hosting: Cloudflare, Vercel, Netlify, Fastly, Amazon CloudFront.
-   - O header `Server` cru também vira badge (ex: "Servidor: nginx").
-   - WordPress usa a detecção própria (mais confiável, ver item 5) e aparece
-     nessa mesma lista quando identificado.
-
-5. **Detecção de WordPress + links sensíveis** (só aparece se detectado):
+4. **Detecção de WordPress + links sensíveis** (só aparece se detectado):
    detecção (`detectWordPress`) via sinais no HTML da home (`wp-content`,
    `wp-includes`, `wp-json`, meta generator) e, como fallback, confirma
    batendo em `/wp-json/` e checando se o JSON tem `name`/`namespaces`. Se
@@ -247,6 +230,79 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
      detectar listagem de diretório ativa via regex `index of /`).
    - Lista ordenada por severidade, cada item mostra status HTTP + nota de
      risco. Botão "Abrir todos".
+
+### Aba Stack
+
+Quatro sub-abas: **Tecnologias**, **Meta Pixel**, **Google (GTM/GA)** e
+**Outros pixels** (a lista antiga de badges de `scanPageForTrackers`, por nome).
+As sub-abas são escopadas por aba pai (`btn.closest(".tab-panel")`), porque SEO
+e Stack têm conjuntos próprios.
+
+**Tecnologias** (`tech-engine.js`): motor compatível com o formato de
+fingerprints do Wappalyzer, feito a partir da especificação pública (README do
+fork) e dos próprios dados.
+- **Base**: fork comunitário `enthec/webappanalyzer` (branch `main`, GPL-3.0,
+  27 arquivos `technologies/*.json` + `categories.json`, ~7600 tecnologias).
+  Baixada em runtime de `raw.githubusercontent.com` e guardada em
+  `chrome.storage.local` (`sitexray:techdb`, ~1,3 MB, versão enxuta sem
+  descrição/CPE/preço) por 7 dias. Falha de rede usa a cópia vencida; sem
+  cópia, cai nas assinaturas próprias (`TECH_SIGNATURES`) e tenta de novo
+  depois de 10 min. O Wappalyzer original virou privado em ago/2023.
+- **Por que não embutida no repositório**: a base é GPL-3.0. Embutir e
+  distribuir junto com o código faria a extensão virar obra derivada (exigiria
+  LICENSE GPL-3.0 e atribuição no repo). Baixar em runtime evita redistribuir.
+  Se um dia quiser modo offline ou zero dependência externa pra Web Store,
+  essa decisão precisa ser revista. Risco aceito: o dado vem de um repo de
+  terceiros (só dado: regex, seletores e caminhos de globais; sem código).
+- **Sinais coletados** (`collectTechSignalsInPage`, injetada em `MAIN`):
+  HTML renderizado (cap 400 KB), `<script src>`, scripts inline, `<meta>`,
+  texto visível, `<style>`, globais JS (`js`, só os ~5600 caminhos da base,
+  passados via `args`), seletores DOM (`dom`, ~1800, com atributos,
+  propriedades e texto) e hosts do Resource Timing (aproxima `xhr`). Fora da
+  página: headers de `fetchHomepage` (+ probe same-origin), cookies via
+  `chrome.cookies` (valores só em memória, nunca guardados) e registros
+  MX/TXT/NS/SOA/CNAME via DoH (`dns`). Página que bloqueia injeção cai pro
+  HTML baixado.
+- **Resolução** (`runDetection`): padrões com tags `confidence` e `version`
+  (incluindo ternário `\1?a:b`); confiança soma por padrão distinto, teto 100;
+  aparece com 50 ou mais e mostra o percentual quando abaixo de 100; `requires`
+  e `requiresCategory` só rodam depois da exigida (até 4 rodadas); `implies` em
+  cadeia (borda tracejada no item = inferida); `excludes` remove. WordPress
+  detectado pela detecção própria entra como `forceNames`.
+- **Não suportados**: `probe`, `robots`, `certIssuer` (poucas técnicas e
+  exigem infraestrutura que a extensão não tem).
+- **UI**: agrupado por categoria (nomes em português em `TECH_CATEGORY_PT`,
+  ordem pela prioridade da base), item com ícone, nome (link pro site, em aba
+  de fundo), versão e confiança. Os ícones são `<img>` direto do repositório
+  do fork (fundo claro, somem se falharem). `lastTechStack` continua sendo a
+  lista de rótulos (nome + versão) usada por histórico e relatório;
+  `lastTechDetails` guarda os itens completos.
+
+**Meta Pixel e Google** (`tracking.js`): `scanTrackingInPage` (injetada em
+`MAIN`, roda 1,2 s depois do scan começar pra dar tempo dos pixels dispararem)
+devolve dado cru; `analyzeTracking` monta modelo + diagnóstico; `drawMetaPixel`
+e `drawGoogle` desenham. Tudo passivo, só lê o que a página já fez.
+- **Meta**: Pixel IDs (de `fbq.getState()`, `init` inline, noscript,
+  `signals/config/<id>` e das requisições), versão do fbevents, instalação
+  direta ou provável GTM, Advanced Matching, cookies `_fbp`/`_fbc` e os
+  eventos reais lidos das requisições a `facebook.com/tr` (`ev`, valor e moeda,
+  presença de dados do usuário em hash, `event_id`). Nunca mostra valores.
+- **GTM**: containers (`GTM-`, de `gtm.js?id=`, noscript, inline e
+  `google_tag_manager`), origem do loader (domínio próprio indica server-side),
+  se inicializou, e o dataLayer: só nomes de eventos com contagem, flag de
+  ecommerce e estado do Consent Mode (granted/denied). Valores do dataLayer
+  nunca saem da página (podem ter dado pessoal).
+- **GA/Google tag/Ads**: IDs `G-`, `UA-`, `AW-`, `DC-`, `GT-` com a origem de cada
+  um; hits de coleta GA4 (`/g/collect`, evento `en`) e UA; conversões do Ads
+  (ID e label); cookies `_ga`, `_ga_<ID>` (mapeia o stream), `_gid`, `_gcl_au`.
+- **Diagnóstico**: container que não inicializou, UA descontinuado, GA4 sem
+  `page_view` ou com `page_view` duplicado, gtag.js direto junto com GTM,
+  PageView duplicado, Purchase sem valor, ausência de `event_id`, Consent Mode
+  ausente ou sem sinais v2, coleta por domínio próprio.
+- **Limites reais**: o Resource Timing guarda só 250 requisições (o diagnóstico
+  avisa quando enche); só aparece o que já disparou até o scan; eventos do GA4
+  em lote (POST) não mostram o nome na URL; pixel que espera o aceite de
+  cookies só aparece depois do aceite (escaneie de novo).
 
 ### Aba Segurança
 
@@ -384,16 +440,20 @@ fecha ao clicar na página. O botão "Ativar inspector de elementos" injeta
   requisições cross-origin sem CORS. Por isso dá pra buscar a home do
   cliente, `crt.sh`, `raw.githubusercontent.com` e binários (favicon) direto
   do `popup.js`, sem service worker nem backend.
-- **Nenhum dado é persistido**: `chrome.storage` não é usado. Cada scan é
-  do zero, e reabrir o popup refaz tudo (dezenas de requests).
+- **O que é persistido**: `chrome.storage.session` guarda o último resultado
+  por origem por 10 min (renderiza na hora e refaz o scan);
+  `chrome.storage.local` guarda o histórico por domínio (20 entradas) e a base
+  de tecnologias (`sitexray:techdb`, 7 dias). Valores de cookie e do dataLayer
+  nunca são guardados.
 - **Sem backend, de propósito.** Foi discutido (VPS vs Vercel) e descartado:
   a extensão fica 100% client-side, gratuita e sem chaves.
 
 ### Alternativas avaliadas e descartadas (pra não rediscutir)
 
-- **Wappalyzer de verdade**: base de fingerprints fechada/paga desde que
-  virou produto comercial, sem API grátis pra embutir. Optou-se por lista
-  própria (`TECH_SIGNATURES`), que cobre o essencial e fica sob controle.
+- **Wappalyzer oficial (produto/API)**: base fechada/paga desde ago/2023, sem
+  API grátis. Substituído na v1.17.0 pelo motor próprio (`tech-engine.js`)
+  lendo o fork comunitário em runtime (ver "Aba Stack"). As assinaturas
+  antigas (`TECH_SIGNATURES`) ficaram só como fallback sem rede.
 - **Censys pra listar subdomínios**: exige API key paga (a partir de
   US$100/mês pro nível útil) e chave em código de extensão é visível pra
   qualquer um. Trocado por **crt.sh**, grátis e sem chave, ao custo de ser
@@ -410,7 +470,8 @@ fecha ao clicar na página. O botão "Ativar inspector de elementos" injeta
 ## Gotchas e convenções de código
 
 - **Funções injetadas precisam ser 100% autocontidas.**
-  `scanPageForTrackers`, `extractSeoData` e `startElementInspector` são
+  `scanPageForTrackers`, `extractSeoData`, `startElementInspector`,
+  `collectTechSignalsInPage` e `scanTrackingInPage` são
   serializadas e executadas dentro da página por `executeScript({ func })`.
   Não podem referenciar constantes, helpers ou variáveis do `popup.js`
   (nada de closure). Qualquer helper que elas precisem tem que ser declarado
@@ -464,7 +525,7 @@ fecha ao clicar na página. O botão "Ativar inspector de elementos" injeta
   `getSitemapsFromRobots`, `getSitemapFromHtml`, `checkAbsoluteUrl`,
   `discoverSitemaps`, `discoverSubdomains`, `checkLinkStatuses`,
   `detectTrackers`, `scanSeo`.
-- **Injetadas na página**: `scanPageForTrackers`, `extractSeoData`,
+- **Injetadas na página**: `scanPageForTrackers`, `extractSeoData`, `scanPagePerformance`, `collectTechSignalsInPage` (tech-engine.js), `scanTrackingInPage` (tracking.js),
   `startElementInspector` (+ `startInspector`, que faz a injeção).
 - **Render**: `renderTrackers`, `renderTech`, `renderSecurity`,
   `renderSensitiveFiles`, `renderCookies`, `renderRedirectCandidates`,
@@ -521,7 +582,8 @@ usadas a cada mudança:
 
 ```bash
 cd wp-link-scanner
-node --check popup.js          # sintaxe
+node --check popup.js          # sintaxe (idem tech-engine.js e tracking.js)
+node ../tools/check-engine.js  # motor de tecnologias e tracking (baixa a base; sem rede, pula a parte real)
 # todo getElementById do JS precisa existir no HTML (exceto ids do painel do
 # inspetor: sx-breadcrumb, sx-body, sx-close, que são criados em runtime):
 node -e 'const fs=require("fs");const h=fs.readFileSync("popup.html","utf8"),j=fs.readFileSync("popup.js","utf8");

@@ -194,7 +194,12 @@ const devVersionEl = document.getElementById("dev-version");
 const devUpdateStatusEl = document.getElementById("dev-update-status");
 const devRepoLinkEl = document.getElementById("dev-repo-link");
 const techContainer = document.getElementById("tech-container");
-const techList = document.getElementById("tech-list");
+const techGroups = document.getElementById("tech-groups");
+const techCount = document.getElementById("tech-count");
+const techEmpty = document.getElementById("tech-empty");
+const trackersEmpty = document.getElementById("trackers-empty");
+const metaView = document.getElementById("meta-view");
+const googleView = document.getElementById("google-view");
 const perfContainer = document.getElementById("perf-container");
 const perfList = document.getElementById("perf-list");
 const thirdPartyContainer = document.getElementById("thirdparty-container");
@@ -243,6 +248,9 @@ let lastFoundResults = [];
 
 let lastTrackers = [];
 let lastTechStack = [];
+let lastTechDetails = [];
+let lastTrackingRaw = null;
+let lastTracking = null;
 let lastSecurityChecks = [];
 let lastSensitiveFiles = [];
 let lastCookies = [];
@@ -1572,6 +1580,7 @@ async function detectTrackers() {
 function renderTrackers(names) {
   trackersList.innerHTML = "";
   lastTrackers = names || [];
+  trackersEmpty.classList.toggle("hidden", !!(names && names.length));
   if (!names || names.length === 0) {
     trackersContainer.classList.add("hidden");
     return;
@@ -1587,22 +1596,31 @@ function renderTrackers(names) {
   trackersContainer.classList.remove("hidden");
 }
 
-function renderTech(names) {
-  techList.innerHTML = "";
-  lastTechStack = names || [];
-  if (!names || names.length === 0) {
+// items: lista de { name, version, confidence, catName, ... } (tech-engine.js).
+function renderTech(items) {
+  lastTechDetails = items || [];
+  lastTechStack = lastTechDetails.map(techLabel);
+  techGroups.innerHTML = "";
+  techEmpty.classList.toggle("hidden", lastTechDetails.length > 0);
+  if (lastTechDetails.length === 0) {
     techContainer.classList.add("hidden");
     return;
   }
-  const li = document.createElement("li");
-  names.forEach((name) => {
-    const badge = document.createElement("span");
-    badge.className = "tracker-badge";
-    badge.textContent = name;
-    li.appendChild(badge);
-  });
-  techList.appendChild(li);
+  techCount.textContent = String(lastTechDetails.length);
+  drawTechGroups(techGroups, lastTechDetails);
   techContainer.classList.remove("hidden");
+}
+
+// Cookies chegam em paralelo ao scan de tracking: redesenha quando um dos dois muda.
+function renderTracking(raw) {
+  lastTrackingRaw = raw;
+  refreshTracking();
+}
+
+function refreshTracking() {
+  lastTracking = analyzeTracking(lastTrackingRaw, lastCookies.map((c) => c.name.toLowerCase()));
+  drawMetaPixel(metaView, lastTracking);
+  drawGoogle(googleView, lastTracking);
 }
 
 // Limiares "bom / precisa melhorar" oficiais do Core Web Vitals (TTFB: web.dev).
@@ -2139,6 +2157,7 @@ function renderSensitiveFiles(found) {
 function renderCookies(cookies) {
   cookiesList.innerHTML = "";
   lastCookies = cookies;
+  if (lastTrackingRaw) refreshTracking();
   updateSecurityGrade();
 
   if (cookies.length === 0) {
@@ -2774,11 +2793,14 @@ function buildReport() {
   lines.push(`Relatório SiteXray - ${lastOrigin}`);
   lines.push(`Data: ${new Date().toLocaleDateString("pt-BR")}`);
   lines.push("");
-  lines.push(
-    lastTechStack.length > 0
-      ? `Tecnologia detectada: ${lastTechStack.join(", ")}`
-      : "Tecnologia detectada: não identificada"
-  );
+  if (lastTechDetails.length > 0) {
+    lines.push(`Tecnologias detectadas (${lastTechDetails.length}):`);
+    groupTechByCategory(lastTechDetails).forEach(([cat, list]) => {
+      lines.push(`- ${cat}: ${list.map((it) => techLabel(it) + (it.confidence < 100 ? ` (${it.confidence}%)` : "")).join(", ")}`);
+    });
+  } else {
+    lines.push("Tecnologia detectada: não identificada");
+  }
 
   lines.push("");
   lines.push(lastIsWordPress ? "WordPress: detectado" : "WordPress: não detectado");
@@ -2836,6 +2858,12 @@ function buildReport() {
       ? `Rastreadores/pixels: ${lastTrackers.join(", ")}`
       : "Rastreadores/pixels: nenhum encontrado"
   );
+
+  const trackingLines = trackingReportLines(lastTracking);
+  if (trackingLines.length) {
+    lines.push("");
+    lines.push(...trackingLines);
+  }
 
   if (lastPerf) {
     lines.push("");
@@ -2954,7 +2982,8 @@ async function saveCache(origin) {
     await chrome.storage.session.set({
       [cacheKey(origin)]: {
         ts: Date.now(),
-        trackers: lastTrackers, tech: lastTechStack, security: lastSecurityChecks,
+        trackers: lastTrackers, tech: lastTechStack, techDetails: lastTechDetails,
+        trackingRaw: lastTrackingRaw, security: lastSecurityChecks,
         sensitive: lastSensitiveFiles, cookies: lastCookies, redirects: lastRedirectCandidates,
         seo: lastSeoData, sitemaps: lastSitemapResults, subdomains: lastSubdomains,
         perf: lastPerf, isWordPress: lastIsWordPress, wpLinks: lastFoundResults,
@@ -2974,10 +3003,11 @@ async function restoreCache(origin) {
     const c = (await chrome.storage.session.get(key))[key];
     if (!c || Date.now() - c.ts > CACHE_TTL_MS) return 0;
     renderTrackers(c.trackers);
-    renderTech(c.tech);
+    renderTech(c.techDetails && c.techDetails.length ? c.techDetails : legacyTechItems(c.tech));
     if (c.security.length) renderSecurity(c.security);
     renderSensitiveFiles(c.sensitive);
     renderCookies(c.cookies);
+    if (c.trackingRaw) renderTracking(c.trackingRaw);
     renderRedirectCandidates(c.redirects);
     if (c.seo) renderSeo(c.seo);
     if (c.sitemaps.length) renderSitemapList(c.sitemaps);
@@ -3015,7 +3045,14 @@ async function runScan() {
   subdomainsContainer.classList.add("hidden");
   subdomainsEmpty.classList.add("hidden");
   trackersContainer.classList.add("hidden");
+  trackersEmpty.classList.add("hidden");
   techContainer.classList.add("hidden");
+  techEmpty.classList.add("hidden");
+  lastTechDetails = [];
+  lastTrackingRaw = null;
+  lastTracking = null;
+  drawMetaPixel(metaView, undefined);
+  drawGoogle(googleView, undefined);
   integrationsContainer.classList.add("hidden");
   contactContainer.classList.add("hidden");
   dnsContainer.classList.add("hidden");
@@ -3082,6 +3119,7 @@ async function runScan() {
 
   const tasks = [
     detectTrackers().then(guard(renderTrackers)),
+    collectTracking(TRACKING_DELAY_MS).then(guard(renderTracking)),
     discoverSubdomains(hostname).then(guard(renderSubdomains)),
     checkSensitiveFiles(origin).then(guard(renderSensitiveFiles)),
     getCookieFlags(origin).then(guard(renderCookies)),
@@ -3137,9 +3175,14 @@ async function runScan() {
   if (!current()) return;
   lastIsWordPress = isWordPress;
 
-  const techStack = detectTechStack(homepageHtml, headers);
-  if (isWordPress) techStack.unshift("WordPress");
-  renderTech(techStack);
+  // Base do Wappalyzer indisponível (sem rede e sem cópia): cai pras
+  // assinaturas próprias, que não dependem de download.
+  const legacyStack = detectTechStack(homepageHtml, headers);
+  if (isWordPress) legacyStack.unshift("WordPress");
+  tasks.push(
+    detectTechnologies({ origin, hostname, headers, homepageHtml, forceNames: isWordPress ? ["WordPress"] : [] })
+      .then(guard((items) => renderTech(items || legacyTechItems(legacyStack))))
+  );
   renderIntegrations(detectIntegrations(homepageHtml, headers));
   renderContact(extractContactInfo(homepageHtml));
   renderSecurity(buildSecurityChecks(headers, httpsForced));
@@ -3264,7 +3307,7 @@ Sua tarefa: identificar o que precisa ser ajustado no site e qual o impacto de c
 
 1. Resumo executivo: 3 a 5 linhas com o estado geral do site e os 3 maiores riscos ou oportunidades.
 
-2. Ajustes necessários: tabela ordenada por prioridade (Crítico, Alto, Médio, Baixo) com as colunas: Prioridade | Problema encontrado | Como corrigir (passos práticos) | Impacto (segurança, SEO, performance, conversão ou LGPD) | Esforço (baixo, médio, alto).
+2. Ajustes necessários: tabela ordenada por prioridade (Crítico, Alto, Médio, Baixo) com as colunas: Prioridade | Problema encontrado | Como corrigir (passos práticos) | Impacto (segurança, SEO, performance, conversão, medição de marketing ou LGPD) | Esforço (baixo, médio, alto).
 
 3. Ganhos rápidos: ajustes que dão para fazer em até 1 hora.
 
@@ -3375,6 +3418,15 @@ async function buildHtmlReport() {
     });
   }
   if (lastTrackers.length) row("Rastreadores", lastTrackers.join(", "));
+  if (lastTracking) {
+    const m = lastTracking.meta;
+    const g = lastTracking.google;
+    row("Meta Pixel", m.detected ? m.pixels.map((p) => p.id).join(", ") || "detectado" : "não detectado");
+    if (m.events.length) row("Eventos Meta", m.events.map((e) => `${e.ev} x${e.count}`).join(", "));
+    row("GTM", g.containers.map((c) => c.id).join(", ") || "não detectado");
+    row("Tags Google", g.tags.map((t) => t.id).join(", ") || "nenhuma");
+    row("Consent Mode", g.consent ? "detectado" : "não detectado");
+  }
   if (lastMixedContent.length) row("Mixed content", lastMixedContent.length + " recurso(s) http");
   if (lastIntegrations.length) row("Integrações", lastIntegrations.map((i) => i.name).join(", "));
   if (lastEmailDns) {
@@ -3487,8 +3539,10 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 
 document.querySelectorAll(".subtab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".subtab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".subtab-panel").forEach((p) => p.classList.add("hidden"));
+    // Escopo na aba pai: SEO e Stack têm sub-abas próprias.
+    const tab = btn.closest(".tab-panel");
+    tab.querySelectorAll(".subtab-btn").forEach((b) => b.classList.remove("active"));
+    tab.querySelectorAll(".subtab-panel").forEach((p) => p.classList.add("hidden"));
     btn.classList.add("active");
     document.getElementById(btn.dataset.subtab).classList.remove("hidden");
   });

@@ -21,14 +21,23 @@ sem abrir dez ferramentas diferentes.
 - Botão "Dev": mostra a versão instalada, link do repositório e avisa
   quando existe uma versão mais nova disponível
 
+**Aba Stack**
+- Tecnologias detectadas no estilo Wappalyzer: ~7600 tecnologias (CMS,
+  e-commerce, frameworks, bibliotecas, CDN, hospedagem, analytics, chat,
+  pagamentos, e-mail e mais), com versão, categoria, ícone e confiança. A
+  base de padrões é baixada do fork comunitário `enthec/webappanalyzer` e
+  atualizada a cada 7 dias
+- Meta Pixel: Pixel IDs, eventos disparados na página (PageView, Purchase…
+  com valor, dados do usuário e event_id) e diagnóstico de instalação
+- Google: containers do GTM, eventos do dataLayer, tags GA4/UA/Google Ads,
+  hits de coleta, Consent Mode e alertas (page_view duplicado, UA
+  descontinuado, gtag.js junto com GTM)
+- Outros pixels: TikTok, Hotjar, Clarity, LinkedIn e afins
+
 **Aba Visão Geral**
 - Sitemap, descoberto via `robots.txt`, tag `<link rel="sitemap">` e
   caminhos padrão
 - robots.txt: Disallow/Allow, Host e Crawl-delay
-- Rastreadores e pixels de marketing (Meta Pixel, Google Analytics, GTM,
-  TikTok Pixel, Hotjar, Clarity e outros)
-- Tecnologia detectada: CMS/page builder, e-commerce, framework JS, CSS
-  framework, CDN/hosting, libs (jQuery, htmx, Alpine…)
 - Tema e plugins WordPress detectados pelos caminhos da home
 - Integrações e widgets: pagamentos (Mercado Pago, Stripe, PagBank…),
   chat (WhatsApp, Tidio, Tawk…), CRM, maps, captcha
@@ -97,8 +106,10 @@ permissão antiga.
 
 ## Stack
 
-Vanilla JS, sem build step, sem dependências externas. Só HTML, CSS e JS
-puro rodando como popup de extensão Manifest V3.
+Vanilla JS, sem build step, sem dependências externas de código. Só HTML, CSS
+e JS puro rodando como painel lateral de extensão Manifest V3. A única coisa
+baixada em runtime é a base de padrões de tecnologias (dado, não código) do
+fork comunitário do Wappalyzer, guardada localmente por 7 dias.
 
 ## Estrutura
 
@@ -108,6 +119,9 @@ wp-link-scanner/
 ├── popup.html
 ├── popup.css
 ├── popup.js
+├── tech-engine.js
+├── tracking.js
+├── background.js
 └── icons/
     ├── icon.png
     └── logo.png

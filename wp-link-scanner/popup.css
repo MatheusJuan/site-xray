@@ -215,17 +215,20 @@ body {
   backdrop-filter: blur(6px);
   border: 1px solid var(--border);
   border-radius: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .tab-btn {
-  flex: 1;
+  flex: 1 0 auto;
+  white-space: nowrap;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--text-dim);
   font-family: var(--mono);
   font-size: 11px;
-  padding: 7px 4px;
+  padding: 7px 8px;
   cursor: pointer;
   transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
@@ -679,7 +682,6 @@ body {
 #sitemap-list,
 #subdomains-list,
 #trackers-list,
-#tech-list,
 #plugins-list,
 #mixed-list,
 #history-list,
@@ -1011,4 +1013,142 @@ a:focus-visible {
 .report-actions .rescan-btn {
   flex: 1;
   margin-top: 10px;
+}
+
+/* Stack: tecnologias, Meta Pixel e Google */
+.count-pill {
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 9.5px;
+  letter-spacing: 0;
+}
+
+.count-pill:empty {
+  display: none;
+}
+
+.tech-group {
+  margin-bottom: 10px;
+}
+
+.tech-group-title {
+  margin: 0 0 5px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 5px;
+}
+
+.tech-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--cyan);
+  text-decoration: none;
+  font-size: 11px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.tech-item:hover {
+  border-color: var(--cyan);
+  transform: translateY(-1px);
+}
+
+.tech-implied {
+  border-style: dashed;
+}
+
+.tech-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+  padding: 1px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.tech-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tech-version,
+.tech-conf {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.tech-conf {
+  color: var(--warn);
+  border-color: rgba(255, 204, 77, 0.35);
+}
+
+.tr-card .section-title::before {
+  display: none;
+}
+
+.chip-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 3px;
+  align-items: center;
+}
+
+.chip-row .tracker-badge {
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 9.5px;
+}
+
+.tr-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.finding {
+  padding: 7px 10px;
+  margin-bottom: 5px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  background: var(--bg);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.finding-warn {
+  border-left-color: var(--warn);
+}
+
+.finding-ok {
+  border-left-color: var(--accent);
 }
