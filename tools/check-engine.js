@@ -4,7 +4,7 @@
 // roda os testes sintéticos. Falha com código 1 se qualquer asserção quebrar.
 const assert = require("assert");
 const path = require("path");
-const ext = path.join(__dirname, "..", "wp-link-scanner");
+const ext = path.join(__dirname, "..", "sitexray");
 const E = require(path.join(ext, "tech-engine.js"));
 const T = require(path.join(ext, "tracking.js"));
 

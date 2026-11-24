@@ -38,7 +38,7 @@ const LINK_STATUS_CAP = 40;
 const SUBDOMAIN_DISPLAY_CAP = 60;
 
 const REPO_URL = "https://github.com/MatheusJuan/site-xray";
-const REPO_MANIFEST_URL = "https://raw.githubusercontent.com/MatheusJuan/site-xray/master/wp-link-scanner/manifest.json";
+const REPO_MANIFEST_URL = "https://raw.githubusercontent.com/MatheusJuan/site-xray/master/sitexray/manifest.json";
 
 // Sinais de tecnologia funcionam pra qualquer site, WordPress ou não.
 // WordPress em si não entra aqui: já tem detecção própria (com fallback via /wp-json/).

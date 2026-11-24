@@ -1,7 +1,7 @@
 # SiteXray
 
 Extensão de navegador (Chrome, Manifest V3) que analisa o site aberto na aba
-ativa e mostra, em um popup com abas, informações públicas úteis para
+ativa e mostra, em um painel lateral (side panel) com abas, informações públicas úteis para
 diagnóstico: detecção de WordPress, links sensíveis do WP, sitemap,
 subdomínios, rastreadores/pixels de marketing, tecnologia usada no site,
 segurança (headers, HTTPS, arquivos expostos, cookies, redirects), SEO
@@ -21,7 +21,7 @@ código. O `README.md` da raiz é o texto voltado a quem só quer instalar e usa
 ## Stack
 
 Vanilla JS, sem build step, sem dependências externas, sem backend. Só HTML +
-CSS + JS puro rodando como popup de extensão MV3. Nenhum framework, nenhum
+CSS + JS puro rodando como painel lateral (`chrome.sidePanel`) de extensão MV3. Os arquivos ainda se chamam `popup.*` por herança, mas não existe `default_popup`. Nenhum framework, nenhum
 bundler, nenhum `package.json`. Tudo o que a extensão consulta na rede é
 público e gratuito (o próprio site analisado, `crt.sh`, `raw.githubusercontent.com`).
 
@@ -43,7 +43,7 @@ público e gratuito (o próprio site analisado, `crt.sh`, `raw.githubusercontent
   `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
 - O git converte LF em CRLF nos arquivos (warning inofensivo em todo commit).
 - A pasta do projeto no disco é `extensão-chrome-analise/` e a extensão em si
-  fica em `wp-link-scanner/` (nome histórico, ver abaixo).
+  fica em `sitexray/` (renomeada de `wp-link-scanner/` na v1.18.1, ver abaixo).
 
 ## Arquivos
 
@@ -52,7 +52,7 @@ extensão-chrome-analise/
 ├── CLAUDE.md               # este arquivo (documentação técnica completa)
 ├── README.md               # apresentação, instalação e uso, voltado ao usuário final
 ├── tools/check-engine.js   # checagem sem navegador do motor de tecnologias e do tracking
-└── wp-link-scanner/        # a extensão (é esta pasta que se carrega no Chrome)
+└── sitexray/        # a extensão (é esta pasta que se carrega no Chrome)
     ├── manifest.json       # MV3, permissions: activeTab, scripting, cookies, sidePanel, storage;
     │                       # host_permissions: http://*/* e https://*/*
     ├── popup.html          # estrutura do popup (~180 linhas)
@@ -66,13 +66,15 @@ extensão-chrome-analise/
         └── logo.png        # logomarca "SITExRAY" do header, 1359x205 RGBA
 ```
 
-Versão atual do manifest: **1.18.0**.
+Versão atual do manifest: **1.18.1**.
 
-Nome de exibição (`manifest.json` `name`): **SiteXray**. A pasta continua
-`wp-link-scanner/` por motivos históricos (era o nome original, "WP Link
-Scanner", quando a extensão só detectava WordPress), sem relação com o nome
-exibido ao usuário. Renomear a pasta quebraria `REPO_MANIFEST_URL` e o
-caminho que o usuário já usa no Chrome, então foi deixada como está.
+Nome de exibição (`manifest.json` `name`): **SiteXray**. A pasta se chamava
+`wp-link-scanner/` (nome original, "WP Link Scanner", de quando só detectava
+WordPress) e foi renomeada pra `sitexray/` na v1.18.1. Consequências da troca:
+`REPO_MANIFEST_URL` aponta pro caminho novo, então instalações até a 1.18.0
+(que checam o caminho antigo) passam a mostrar "Não foi possível checar
+atualização" até o usuário atualizar manualmente uma vez; e quem carregou a
+extensão no Chrome precisa remover e carregar de novo apontando pra `sitexray/`.
 
 `manifest.json` usa o mesmo `icons/icon.png` pras 4 chaves de tamanho
 (16/32/48/128) e pro `action.default_icon`. Só um arquivo fonte, sem gerar
@@ -119,6 +121,7 @@ extensão instalada. Mudança sem bump de versão fica invisível pra esse aviso
 | 1.16.0 | `d3107ae` | Botão "Gerar relatório" (copia prompt pré-setado pra IA + relatório, pedindo ajustes priorizados e impacto); "Gerar relatório" e "Escanear novamente" movidos pro topo (desabilitados durante o scan) |
 | 1.17.0 | pendente | Aba Stack: motor de tecnologias no formato Wappalyzer (base do fork enthec baixada em runtime, ~7600 técnicas, versão, confiança, categorias, ícones), visão detalhada de Meta Pixel (IDs, eventos, diagnóstico), GTM (containers, dataLayer, Consent Mode) e GA4/UA/Google Ads (IDs, hits, duplicidade), tracking no relatório e no prompt da IA |
 | 1.18.0 | pendente | Análise leve automática (só lê a página, sem consultar o site) x análise completa sob clique (arquivos sensíveis, sitemap, robots, subdomínios, DNS, status dos links, HTTPS forçado, caminhos WP); nota e relatório marcam o que não foi verificado |
+| 1.18.1 | pendente | Pasta renomeada `wp-link-scanner/` pra `sitexray/`, docs corrigidas (painel lateral, não popup), LICENSE MIT e CHANGELOG |
 
 (`980ac78` adicionou o `README.md` sem mudar a versão.)
 
@@ -186,7 +189,7 @@ Clicar no botão abre/fecha um painel (`#dev-panel`) com:
 
 - Versão instalada (`chrome.runtime.getManifest().version`).
 - Checagem de atualização: busca o `manifest.json` direto de
-  `raw.githubusercontent.com/MatheusJuan/site-xray/master/wp-link-scanner/manifest.json`
+  `raw.githubusercontent.com/MatheusJuan/site-xray/master/sitexray/manifest.json`
   (com cache-buster `?_=timestamp`, sem usar a API do GitHub pra não esbarrar
   em rate limit) e compara semver com `compareVersions()`. Se a versão remota
   for maior, mostra "🔴 Atualização disponível" e pinta o botão Dev de
@@ -615,7 +618,7 @@ validado só estaticamente**, e o autor testa manualmente no Chrome. Checagens
 usadas a cada mudança:
 
 ```bash
-cd wp-link-scanner
+cd sitexray
 node --check popup.js          # sintaxe (idem tech-engine.js e tracking.js)
 node ../tools/check-engine.js  # motor de tecnologias e tracking (baixa a base; sem rede, pula a parte real)
 # todo getElementById do JS precisa existir no HTML (exceto ids do painel do
@@ -649,7 +652,7 @@ Ordenadas por impacto x esforço:
 
 1. Abrir `chrome://extensions`.
 2. Ativar "Modo do desenvolvedor".
-3. "Carregar sem compactação" apontando pra pasta **`wp-link-scanner/`** (a
+3. "Carregar sem compactação" apontando pra pasta **`sitexray/`** (a
    subpasta, não a raiz do repositório: o `manifest.json` está lá dentro, e
    apontar pra raiz dá "arquivo de manifesto ausente").
 4. Depois de `git pull`, um clique em recarregar costuma bastar. Ao mudar
@@ -657,4 +660,4 @@ Ordenadas por impacto x esforço:
    `cookies` da v1.11.0), **remover a extensão e carregar de novo**, pra
    evitar permissão cacheada.
 5. Quem baixou o ZIP do GitHub recebe a pasta `site-xray-master/` e precisa
-   carregar `site-xray-master/wp-link-scanner/`.
+   carregar `site-xray-master/sitexray/`.

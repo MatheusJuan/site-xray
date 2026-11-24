@@ -1,7 +1,7 @@
 # SiteXray
 
 Extensão de navegador (Chrome, Manifest V3) que analisa o site aberto na aba
-ativa e mostra, num popup organizado em abas, informações públicas úteis
+ativa e mostra, num painel lateral (side panel) organizado em abas, informações públicas úteis
 para diagnóstico rápido: detecção de WordPress, links sensíveis, sitemap,
 rastreadores de marketing, tecnologia usada no site, segurança, SEO on-page
 e um inspetor visual de elementos.
@@ -89,7 +89,7 @@ Tudo passivo: a extensão não faz teste de exploração.
 2. Abra `chrome://extensions` no navegador
 3. Ative o "Modo do desenvolvedor" (canto superior direito)
 4. Clique em "Carregar sem compactação"
-5. Selecione a pasta `wp-link-scanner/` (não a raiz do repositório)
+5. Selecione a pasta `sitexray/` (não a raiz do repositório; em versões até 1.18.0 ela se chamava `wp-link-scanner/`)
 
 Depois de um `git pull`, um clique em recarregar na extensão já basta na
 maioria das vezes. Quando o `manifest.json` muda (nova permissão, ícone
@@ -111,10 +111,14 @@ e JS puro rodando como painel lateral de extensão Manifest V3. A única coisa
 baixada em runtime é a base de padrões de tecnologias (dado, não código) do
 fork comunitário do Wappalyzer, guardada localmente por 7 dias.
 
+## Licença
+
+MIT, veja [LICENSE](LICENSE). A base de padrões de tecnologias baixada em runtime (`enthec/webappanalyzer`) é GPL-3.0 e não é redistribuída neste repositório.
+
 ## Estrutura
 
 ```
-wp-link-scanner/
+sitexray/
 ├── manifest.json
 ├── popup.html
 ├── popup.css

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SiteXray",
-  "version": "1.18.0",
-  "description": "Detecta se o site atual roda WordPress, lista links públicos sensíveis e rastreadores/pixels carregados na página.",
+  "version": "1.18.1",
+  "description": "Analisa o site da aba atual: tecnologias, tracking (Meta, GTM, GA), SEO, segurança, WordPress e performance, com relatório pronto para proposta.",
   "permissions": ["activeTab", "scripting", "cookies", "sidePanel", "storage"],
   "minimum_chrome_version": "116",
   "background": { "service_worker": "background.js" },
